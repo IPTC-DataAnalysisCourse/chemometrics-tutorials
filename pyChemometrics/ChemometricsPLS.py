@@ -468,7 +468,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 # Predict X from Y
                 elif y is not None:
                     # Going through calculation of U and then X = Ub_uW'
-                    u_scores = ChemometricsPLS.transform(self, x=None, y=y)
+                    u_scores = ChemometricsPLS.transform(self, X=None, y=y)
                     predicted = np.dot(np.dot(u_scores, self.b_u), self.weights_w.T)
                     if predicted.ndim == 1:
                         predicted = predicted.reshape(-1, 1)
