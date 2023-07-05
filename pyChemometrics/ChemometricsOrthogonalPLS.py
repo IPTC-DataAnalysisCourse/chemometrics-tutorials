@@ -377,7 +377,7 @@ class ChemometricsOrthogonalPLS(BaseEstimator, RegressorMixin, TransformerMixin)
                     if y.ndim == 1:
                         y = y.reshape(-1, 1)
                     # Going through calculation of U and then X = Ub_uW'
-                    u_scores = self.transform(x=None, y=y)
+                    u_scores = self.transform(X=None, y=y)
                     if self.w_ortho is not None:
                         w = np.c_[self.w_ortho, self.w_pred]
                     else:
