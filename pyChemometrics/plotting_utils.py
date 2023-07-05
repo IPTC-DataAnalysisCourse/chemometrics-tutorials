@@ -122,7 +122,6 @@ def _lineplots(mean, error=None, xaxis=None):
         ax.plot(xaxis, mean)
     if error is not None:
         ax.fill_between(xaxis, mean - error, mean + error, alpha=0.2, color='red')
-    plt.show()
     return fig, ax
 
 
