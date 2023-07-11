@@ -586,10 +586,10 @@ class ChemometricsOrthogonalPLS(BaseEstimator, RegressorMixin, TransformerMixin)
             else:
                 mean = choices[parameter][:, orthogonal_component]
         if bar is False:
-            _lineplots(mean, error=error, xaxis=xaxis)
+            fig, ax = _lineplots(mean, error=error, xaxis=xaxis)
         # To use with barplots for other types of data
         else:
-            _barplots(mean, error=error, xaxis=xaxis)
+            fig, ax = _barplots(mean, error=error, xaxis=xaxis)
 
         plt.xlabel("Variable No")
         if parameter in ['w_pred', 'p_pred']:
@@ -598,7 +598,7 @@ class ChemometricsOrthogonalPLS(BaseEstimator, RegressorMixin, TransformerMixin)
             plt.ylabel("{0} for Orthogonal PLS component {1}".format(parameter, (orthogonal_component + 1)))
         plt.show()
 
-        return None
+        return fig, ax
 
     @property
     def ncomps(self):
