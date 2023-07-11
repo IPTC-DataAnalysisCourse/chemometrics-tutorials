@@ -1,6 +1,6 @@
 # Chemometric data analysis tutorials
 
-[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/Gscorreia89/chemometrics-tutorials/master)
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/IPTC-DataAnalysisCourse/chemometrics-tutorials/HEAD)
 
 This repository contains a series of tutorials on multivariate analysis of metabolic profiling datasets: 
  - Import, scaling & normalisation.ipynb: Introduction to normalisation, scaling and data transformations.  
