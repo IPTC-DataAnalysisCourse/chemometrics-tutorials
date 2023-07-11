@@ -1178,12 +1178,12 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             else:
                 mean = choices[parameter][:, component]
         if plottype == 'spectra':
-            _lineplots(mean, error=error, xaxis=xaxis)
+            fig, ax = _lineplots(mean, error=error, xaxis=xaxis)
         # To use with barplots for other types of data
         elif plottype == 'bar':
-            _barplots(mean, error=error, xaxis=xaxis)
+            fig, ax = _barplots(mean, error=error, xaxis=xaxis)
         elif plottype == 'scatterplot':
-            _scatterplots(mean, xaxis=xaxis, yaxis=yaxis, xlabel=xaxislabel,
+            fig, ax = _scatterplots(mean, xaxis=xaxis, yaxis=yaxis, xlabel=xaxislabel,
                           ylabel=yaxislabel, cbarlabel=parameter)
         if plottype in ['spectra', 'bar']:
             plt.xlabel("Variable No")
@@ -1193,7 +1193,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 plt.ylabel("{0} for PLS component {1}".format(parameter, (component + 1)))
             plt.show()
 
-        return None
+        return fig, ax
 
     def external_validation_set(self, x):
         """
