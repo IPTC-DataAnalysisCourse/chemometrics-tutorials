@@ -7,6 +7,7 @@ Johan Trygg, Svante Wold, Orthogonal projections to latent structures (O-PLS), J
 """
 import warnings
 from abc import ABCMeta, abstractmethod
+from numbers import Integral, Real
 
 import numpy as np
 from scipy.linalg import pinv
@@ -15,9 +16,11 @@ from sklearn.base import BaseEstimator, RegressorMixin, TransformerMixin
 from sklearn.utils import check_array, check_consistent_length
 from sklearn.utils.extmath import svd_flip
 from sklearn.utils.validation import check_is_fitted, FLOAT_DTYPES
+from sklearn.utils._param_validation import Interval, StrOptions
 import six
 
 __author__ = 'gscorreia89'
+# updated by flsoares232 on 17-10-2023
 
 
 def _nipals_twoblocks_inner_loop(X, Y, mode="A", max_iter=500, tol=1e-06,
@@ -38,7 +41,6 @@ def _nipals_twoblocks_inner_loop(X, Y, mode="A", max_iter=500, tol=1e-06,
         # 1.1 Update u: the X weights
         if mode == "B":
             if X_pinv is None:
-                # reasons
                 X_pinv = pinv(X, check_finite=False)
             x_weights = np.dot(X_pinv, y_score)
         else:  # mode A
@@ -150,6 +152,7 @@ class _orthogonal_pls(six.with_metaclass(ABCMeta), BaseEstimator, TransformerMix
         :return: Fitted object.
         :rtype: pyChemometrics._orthogonal_pls
         """
+        np.seterr(divide='ignore', invalid='ignore')
 
         # copy since this will contains the residuals (deflated) matrices
         check_consistent_length(X, Y)
@@ -233,11 +236,25 @@ class _orthogonal_pls(six.with_metaclass(ABCMeta), BaseEstimator, TransformerMix
                 c_ss = np.dot(c_ortho.T, c_ortho)
 
             y_scores = np.dot(Yk, y_weights) / y_ss
-            u_ortho = np.dot(Yk, c_ortho) / c_ss
-
-            # test for null variance
+            u_ortho = np.divide(np.dot(Yk, c_ortho),c_ss)
+            
+            # Precision is too high sometimes, doing this to avoid lack of convergence in SVD later            
+            if np.isnan(u_ortho).any():
+                Yk_red = np.round(Yk,8)
+                t_ortho_red = np.round(t_ortho,8)
+                c_ortho_red = np.dot(Yk_red.T, t_ortho_red) / np.dot(t_ortho_red.T, t_ortho_red)
+                c_ss_red = np.dot(c_ortho_red.T, c_ortho_red)
+                u_ortho = np.divide(np.dot(Yk_red, c_ortho_red),c_ss_red)
+            # End here
+                
+            # test for null variance on X
             if np.dot(x_scores.T, x_scores) < np.finfo(np.double).eps or np.dot(t_ortho.T, t_ortho) < np.finfo(np.double).eps:
                 warnings.warn('X scores are null at iteration %s' % k)
+                break
+            
+            # test for null variance on Y
+            if np.dot(y_scores.T, y_scores) < np.finfo(np.double).eps or np.dot(u_ortho.T, u_ortho) < np.finfo(np.double).eps:
+                warnings.warn('Y scores are null at iteration %s' % k)
                 break
 
             #Yk -= np.dot(x_scores, y_loadings.T)
@@ -303,6 +320,7 @@ class _orthogonal_pls(six.with_metaclass(ABCMeta), BaseEstimator, TransformerMix
         c = np.c_[self.c_ortho, self.predictive_c]
         t = np.c_[self.t_ortho, self.predictive_t]
         u = np.c_[self.u_ortho, self.predictive_u]
+        
         # 4) rotations from input space to transformed space (scores)
         # T = X W(P'W)^-1 = XW* (W* : p x k matrix)
         # U = Y C(Q'C)^-1 = YC* (W* : q x k matrix)
@@ -316,14 +334,12 @@ class _orthogonal_pls(six.with_metaclass(ABCMeta), BaseEstimator, TransformerMix
         #else:
         #    self.y_rotations_ = np.ones(1)
 
-        self.coef_ = np.dot(np.dot(w, np.linalg.pinv(np.dot(p.T, w))), q.T)
+        self.coef_ = np.dot(np.dot(w, pinv(np.dot(p.T, w))), q.T)
         self.coef_ *= self.y_std_
 
-        self.b_u = np.dot(np.dot(np.linalg.pinv(np.dot(u.T, u)), u.T),
-                          t)
-        self.b_t = np.dot(np.dot(np.linalg.pinv(np.dot(t.T, t)), t.T),
-                          u)
-
+        self.b_u = np.dot(np.dot(pinv(np.dot(u.T, u)), u.T),t)
+        self.b_t = np.dot(np.dot(pinv(np.dot(t.T, t)), t.T),u)
+            
         return self
 
     def transform(self, X, Y=None, copy=True):
@@ -408,6 +424,7 @@ class OrthogonalPLSRegression(_orthogonal_pls):
                  max_iter=500, tol=1e-06, copy=True):
         super(OrthogonalPLSRegression, self).__init__(
             n_components=n_components, scale=scale,
-            deflation_mode="regression", mode="A",
+            deflation_mode="regression", mode="A", algorithm="nipals",
             norm_y_weights=False, max_iter=max_iter, tol=tol,
             copy=copy)
+

@@ -2,7 +2,7 @@ from copy import deepcopy
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin, clone
-from sklearn.cross_decomposition import PLSRegression
+from sklearn.cross_decomposition._pls import PLSRegression, _PLS
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
 from .ChemometricsScaler import ChemometricsScaler
@@ -10,9 +10,12 @@ import scipy.stats as st
 import matplotlib as mpl
 import matplotlib.cm as cm
 from matplotlib.colors import Normalize
-from .plotting_utils import _lineplots, _barplots, _scatterplots
+from .plotting_utils import _lineplots, _barplots
 import seaborn as sns
+from kneed import KneeLocator
+from pyChemometrics.plotting_utils import _scatterplots
 __author__ = 'gd2212'
+# updated by flsoares232 on 17-10-2023
 
 
 class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
@@ -21,7 +24,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     ChemometricsPLS object - Wrapper for sklearn.cross_decomposition PLS algorithms, with tailored methods
     for Chemometric Data analysis.
 
-    :param int n_components: Number of PLS components desired.
+    :param int ncomps: Number of PLS components desired.
     :param sklearn._PLS pls_algorithm: Scikit-learn PLS algorithm to use - PLSRegression or PLSCanonical are supported.
     :param xscaler: Scaler object for X data matrix.
     :type xscaler: ChemometricsScaler object, scaling/preprocessing objects from scikit-learn or None.
@@ -102,25 +105,25 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
     Computational Statistics, 2007
     """
 
-    def __init__(self, n_components=2, pls_algorithm=PLSRegression, x_scaler=ChemometricsScaler(), y_scaler=None,
+    def __init__(self, n_components=2, pls_algorithm=PLSRegression, x_scaler=ChemometricsScaler(), yscaler=None,
                  **pls_type_kwargs):
 
         try:
 
             # Perform the check with is instance but avoid abstract base class runs.
             pls_algorithm = pls_algorithm(n_components, scale=False, **pls_type_kwargs)
-            if not isinstance(pls_algorithm, (BaseEstimator, PLSRegression)):
+            if not isinstance(pls_algorithm, (BaseEstimator, _PLS)):
                 raise TypeError("Scikit-learn model please")
             if not (isinstance(x_scaler, TransformerMixin) or x_scaler is None):
                 raise TypeError("Scikit-learn Transformer-like object or None")
-            if not (isinstance(y_scaler, TransformerMixin) or y_scaler is None):
+            if not (isinstance(yscaler, TransformerMixin) or yscaler is None):
                 raise TypeError("Scikit-learn Transformer-like object or None")
             # 2 blocks of data = two scaling options
             if x_scaler is None:
                 x_scaler = ChemometricsScaler(0, with_std=False)
-                # Force scaling to false by default
-            if y_scaler is None:
-                y_scaler = ChemometricsScaler(0, with_std=False)
+                # Force scaling to false, as this will be handled by the provided scaler or not
+            if yscaler is None:
+                yscaler = ChemometricsScaler(0, with_std=False)
 
             self.pls_algorithm = pls_algorithm
             # Most initialized as None, before object is fitted...
@@ -138,53 +141,54 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
             self.n_components = n_components
             self.x_scaler = x_scaler
-            self.y_scaler = y_scaler
+            self._y_scaler = yscaler
             self.cvParameters = None
             self.modelParameters = None
             self._isfitted = False
 
         except TypeError as terp:
             print(terp.args[0])
-
+            
     @property
     def n_components(self):
-        try:
-            return self._n_components
-        except AttributeError as atre:
-            raise atre
+         try:
+             return self._n_components
+         except AttributeError as atre:
+             raise atre
 
     @n_components.setter
     def n_components(self, n_components=1):
-        """
+         """
 
-        Setter for number of components. Re-sets the model.
+         Setter for number of components. Re-sets the model.
 
-        :param int ncomps: Number of PLS components to use in the model.
-        :raise AttributeError: If there is a problem changing the number of components and resetting the model.
-        """
-        # To ensure changing number of components effectively resets the model
-        try:
-            self._n_components = n_components
-            self.pls_algorithm = clone(self.pls_algorithm, safe=True)
-            self.pls_algorithm.n_components = n_components
-            self.loadings_p = None
-            self.scores_t = None
-            self.scores_u = None
-            self.loadings_q = None
-            self.weights_c = None
-            self.weights_w = None
-            self.rotations_cs = None
-            self.rotations_ws = None
-            self.cvParameters = None
-            self.modelParameters = None
-            self.b_t = None
-            self.b_u = None
-            self.beta_coeffs = None
-            self._isfitted = False
+         :param int ncomps: Number of PLS components to use in the model.
+         :raise AttributeError: If there is a problem changing the number of components and resetting the model.
+         """
+         # To ensure changing number of components effectively resets the model
+         try:
+             self._n_components = n_components
+             self.pls_algorithm = clone(self.pls_algorithm, safe=True)
+             self.pls_algorithm.n_components = n_components
+             self.loadings_p = None
+             self.scores_t = None
+             self.scores_u = None
+             self.loadings_q = None
+             self.weights_c = None
+             self.weights_w = None
+             self.rotations_cs = None
+             self.rotations_ws = None
+             self.cvParameters = None
+             self.modelParameters = None
+             self.b_t = None
+             self.b_u = None
+             self.beta_coeffs = None
+             self._isfitted = False
 
-            return None
-        except AttributeError as atre:
-            raise atre
+             return None
+         except AttributeError as atre:
+             raise atre
+
 
     def fit(self, x, y, **fit_params):
         """
@@ -238,12 +242,16 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             self.beta_coeffs = self.pls_algorithm.coef_
             # Needs to come here for the method shortcuts down the line to work...
             self._isfitted = True
-            self.cvParameters = None
+
             # Calculate RSSy/RSSx, R2Y/R2X
             R2Y = ChemometricsPLS.score(self, x=x, y=y, block_to_score='y')
             R2X = ChemometricsPLS.score(self, x=x, y=y, block_to_score='x')
 
-            self.modelParameters = {'R2Y': R2Y, 'R2X': R2X}
+            # Obtain residual sum of squares for whole data set and per component
+            cm_fit = self._cummulativefit(x, y)
+
+            self.modelParameters = {'R2Y': R2Y, 'R2X': R2X, 'SSX': cm_fit['SSX'], 'SSY': cm_fit['SSY'],
+                                    'SSXcomp': cm_fit['SSXcomp'], 'SSYcomp': cm_fit['SSYcomp']}
 
             resid_ssx = self._residual_ssx(x)
             s0 = np.sqrt(resid_ssx.sum() / ((self.scores_t.shape[0] - self.n_components - 1) * (x.shape[1] - self.n_components)))
@@ -460,7 +468,12 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                     xscaled = self.x_scaler.transform(x)
 
                     # Using Betas to predict Y directly
-                    predicted = np.dot(xscaled, self.beta_coeffs)
+                    # Had to add this is stupid try/except because the coeff keep changing its dimensions (flsoares232)
+                    try:
+                        predicted = np.dot(xscaled, self.beta_coeffs)
+                    except:
+                        predicted = np.dot(xscaled, self.beta_coeffs.T)
+                    # It solved but it was good to know why it is happening
                     if predicted.ndim == 1:
                         predicted = predicted.reshape(-1, 1)
                     predicted = self.y_scaler.inverse_transform(predicted)
@@ -468,7 +481,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 # Predict X from Y
                 elif y is not None:
                     # Going through calculation of U and then X = Ub_uW'
-                    u_scores = ChemometricsPLS.transform(self, X=None, y=y)
+                    # u_scores = ChemometricsPLS.transform(self, x=None, y=y)
+                    # Comment the cell above, because otherwhise it keeped saying there was a missing input (flsoares232)
+                    u_scores = ChemometricsPLS.transform(self, None, y)
                     predicted = np.dot(np.dot(u_scores, self.b_u), self.weights_w.T)
                     if predicted.ndim == 1:
                         predicted = predicted.reshape(-1, 1)
@@ -480,6 +495,53 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             raise verr
         except AttributeError as atter:
             raise atter
+
+    @property
+    def y_scaler(self):
+        try:
+            return self._y_scaler
+        except AttributeError as atre:
+            raise atre
+
+    @y_scaler.setter
+    def y_scaler(self, scaler):
+        """
+
+        Setter for the Y data block scaler.
+
+        :param scaler: The object which will handle data scaling.
+        :type scaler: ChemometricsScaler object, scaling/preprocessing objects from scikit-learn or None
+        :raise AttributeError: If there is a problem changing the scaler and resetting the model.
+        :raise TypeError: If the new scaler provided is not a valid object.
+        """
+        try:
+            if not (isinstance(scaler, TransformerMixin) or scaler is None):
+                raise TypeError("Scikit-learn Transformer-like object or None")
+            if scaler is None:
+                scaler = ChemometricsScaler(0, with_std=False)
+
+            self._y_scaler = scaler
+            self.pls_algorithm = clone(self.pls_algorithm, safe=True)
+            self.modelParameters = None
+            self.cvParameters = None
+            self.loadings_p = None
+            self.weights_w = None
+            self.weights_c = None
+            self.loadings_q = None
+            self.rotations_ws = None
+            self.rotations_cs = None
+            self.scores_t = None
+            self.scores_u = None
+            self.b_t = None
+            self.b_u = None
+            self.beta_coeffs = None
+
+            return None
+
+        except AttributeError as atre:
+            raise atre
+        except TypeError as typerr:
+            raise typerr
 
     def VIP(self):
         """
@@ -505,10 +567,11 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 raise AttributeError("Model is not fitted")
 
             nvars = self.loadings_p.shape[0]
+            vipnum = np.zeros(nvars)
+            for comp in range(0, self.n_components):
+                vipnum += (self.weights_w[:, comp] ** 2) * (self.modelParameters['SSYcomp'][comp])
 
-            SSYcomp = np.sum(self.scores_t ** 2, axis=0) * np.sum(self.scores_u ** 2, axis=0)
-
-            vip = np.sqrt(np.sum(self.weights_w ** 2 * SSYcomp * nvars / SSYcomp.sum(), axis=1))
+            vip = np.sqrt(vipnum * nvars / self.modelParameters['SSYcomp'].sum())
 
             return vip
 
@@ -573,7 +636,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         dmodx = np.sqrt((s/self.modelParameters['S0X'])**2)
         return dmodx
 
-    def leverages(self, block):
+    def leverages(self, block='X'):
         """
         Calculate the leverages for each observation
         :return:
@@ -618,7 +681,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except Exception as exp:
             raise exp
 
-    def cross_validation(self, x, y, cv_method=KFold(7, shuffle=True), outputdist=False,
+    def cross_validation(self, x, y, cv_method=KFold(n_splits=7, shuffle=True), outputdist=False,
                          **crossval_kwargs):
         """
 
@@ -831,7 +894,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         except TypeError as terp:
             raise terp
 
-    def permutation_test(self, x, y, nperms=1000, cv_method=KFold(7, shuffle=True), **permtest_kwargs):
+    def permutation_test(self, x, y, nperms=1000, cv_method=KFold(n_splits=7, shuffle=True), **permtest_kwargs):
         """
 
         Permutation test for the classifier. Outputs permuted null distributions for model performance metrics (Q2X/Q2Y)
@@ -963,6 +1026,49 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         residuals = np.sum(np.square(xscaled - x_reconstructed), axis=1)
         return residuals
 
+    def _cummulativefit(self, x, y):
+        """
+        Measure the cumulative Regression sum of Squares for each individual component.
+
+        :param x: Data matrix to fit the PLS model.
+        :type x: numpy.ndarray, shape [n_samples, n_features]
+        :param y: Data matrix to fit the PLS model.
+        :type y: numpy.ndarray, shape [n_samples, n_features]
+        :return: dictionary object containing the total Regression Sum of Squares and the Sum of Squares
+        per components, for both the X and Y data blocks.
+        :rtype: dict
+        """
+
+        if y.ndim == 1:
+            y = y.reshape(-1, 1)
+        if x.ndim == 1:
+            x = x.reshape(-1, 1)
+        if self._isfitted is False:
+            raise AttributeError('fit model first')
+
+        xscaled = self.x_scaler.transform(x)
+        yscaled = self.y_scaler.transform(y)
+
+        # Obtain residual sum of squares for whole data set and per component
+        SSX = np.sum(np.square(xscaled))
+        SSY = np.sum(np.square(yscaled))
+        ssx_comp = list()
+        ssy_comp = list()
+
+        for curr_comp in range(1, self.n_components + 1):
+            model = self._reduce_ncomps(curr_comp)
+
+            ypred = self.y_scaler.transform(ChemometricsPLS.predict(model, x, y=None))
+            xpred = self.x_scaler.transform(ChemometricsPLS.predict(model, x=None, y=y))
+            rssy = np.sum(np.square(yscaled - ypred))
+            rssx = np.sum(np.square(xscaled - xpred))
+            ssx_comp.append(rssx)
+            ssy_comp.append(rssy)
+
+        cumulative_fit = {'SSX': SSX, 'SSY': SSY, 'SSXcomp': np.array(ssx_comp), 'SSYcomp': np.array(ssy_comp)}
+
+        return cumulative_fit
+
     def plot_scores(self, comps=[0, 1], color=None, discrete=False, label_outliers=False, plot_title=None):
         """
 
@@ -996,18 +1102,18 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                     cmap = cm.jet
                     cnorm = Normalize(vmin=min(color), vmax=max(color))
 
-                    scatter = ax.scatter(x_coord, y_coord, c=color, cmap=cmap, norm=cnorm)
+                    ax.scatter(x_coord, y_coord, c=color, cmap=cmap, norm=cnorm)
                     #ax.scatter(x_coord[outlier_idx], y_coord[outlier_idx],
                     #            c=color[outlier_idx], cmap=cmap, norm=cnorm, marker='x',
                     #            s=1.5 * mpl.rcParams['lines.markersize'] ** 2)
-                    fig.colorbar(scatter)
+                    ax.colorbar()
                 else:
                     cmap = cm.Set1
                     subtypes = np.unique(color)
                     for subtype in subtypes:
                         subset_index = np.where(color == subtype)
                         ax.scatter(x_coord[subset_index], y_coord[subset_index],
-                                    c=cmap(subtype), label=subtype)
+                                    c=cmap([subtype]), label=subtype) # Removed warning by adding brackets into the color index (flsoares232)
                     ax.legend()
                     #plt.scatter(x_coord[outlier_idx], y_coord[outlier_idx],
                     #            c=color[outlier_idx], cmap=cmap, marker='x',
@@ -1020,9 +1126,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 angle = np.arange(-np.pi, np.pi, 0.01)
                 x = t2[0] * np.cos(angle)
                 y = t2[1] * np.sin(angle)
-                ax.axhline(c='k')
-                ax.axvline(c='k')
-                ax.plot(x, y, c='k')
+                ax.axhline(c='k',ls = '--')
+                ax.axvline(c='k',ls = '--')
+                ax.plot(x, y, c='grey',ls = '--')
 
                 xmin = np.minimum(min(x_coord), np.min(x))
                 xmax = np.maximum(max(x_coord), np.max(x))
@@ -1053,7 +1159,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             ax.set_xlabel("T[{0}]".format((comps[0] + 1)))
             ax.set_ylabel("T[{0}]".format((comps[1] + 1)))
         plt.show()
-        return ax
+        return None
 
     def scree_plot(self, x, y, total_comps=5):
         """
@@ -1103,9 +1209,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                       "at component {0}".format(plateau + 1))
 
         plt.show()
-        return ax
+        return None
 
-    def repeated_cv(self, x, y, total_comps=7, repeats=15, cv_method=KFold(7, shuffle=True)):
+    def repeated_cv(self, x, y, total_comps=7, repeats=15, cv_method=KFold(n_splits=7, shuffle=True)):
         """
 
         Perform repeated cross-validation and plot Q2Y values and their distribution (violin plot) per component
@@ -1143,17 +1249,30 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             fig, ax = plt.figure()
             hst = ax.hist(permt_res[0][metric], 100)
             if metric == 'Q2Y':
-                ax.vlines(x=self.cvParameters['Q2Y'], ymin=0, ymax=max(hst[0]), linestyle='--')
+                ax.vlines(x=self.cvParameters['Q2Y'], ymin=0, ymax=max(hst[0]))
             return ax
 
         except KeyError:
             print("Run cross-validation before calling the plotting function")
         except Exception as exp:
             raise exp
-
-    def plot_model_parameters(self, parameter='w', component=1, cross_val=False, sigma=2, plottype='spectra',
-                              xaxis=None, yaxis=None,
-                              xaxislabel='Retention Time', yaxislabel='Mass to charge ratio (m/z)'):
+    
+    ####### flsoares232 version - Updated 20-10-2023
+    def plot_model_parameters(self, parameter='w', component=1, cross_val=False, sigma=2, bar=False, xaxis=None, yaxis=None, instrument=None):
+        
+        """
+        Plot different model parameters related with the variables
+        
+        :param parameter: Select which parameter to perform a plot of the data (weitghs 'w' = default,
+         rotated weitghs 'c', X loadings 'p', Y loadings 'q', Beta coefficients 'beta',
+         Rotation matrix 'cs', VIP 'vip')
+        :param component: Select which Latent Variable to perform a plot (Does not needed for beta or vip)
+        :param cross_val: To show the standard deviation of the parameter during CV
+        :param xaxis: Plot against the original X axis, otherwise it ill plot against 'Variable No'
+        :param instrument: Correct the plot based on the instrument used (NMR = 'nmr', LC-MS = 'lcms', Other = 'None'). Obs.: Need to have the xaxis
+        :param sigma: SD opacity - Plot details
+        :return:
+        """
 
         choices = {'w': self.weights_w, 'c': self.weights_c, 'p': self.loadings_p, 'q': self.loadings_q,
                    'beta': self.beta_coeffs, 'ws': self.rotations_ws, 'cs': self.rotations_cs,
@@ -1163,6 +1282,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
 
         # decrement component to adjust for python indexing
         component -= 1
+        
         # Beta and VIP don't depend on components so have an exception status here
         if cross_val is True:
             if parameter in ['beta', 'VIP']:
@@ -1177,23 +1297,115 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 mean = choices[parameter].squeeze()
             else:
                 mean = choices[parameter][:, component]
-        if plottype == 'spectra':
-            fig, ax = _lineplots(mean, error=error, xaxis=xaxis)
-        # To use with barplots for other types of data
-        elif plottype == 'bar':
-            fig, ax = _barplots(mean, error=error, xaxis=xaxis)
-        elif plottype == 'scatterplot':
-            fig, ax = _scatterplots(mean, xaxis=xaxis, yaxis=yaxis, xlabel=xaxislabel,
-                          ylabel=yaxislabel, cbarlabel=parameter)
-        if plottype in ['spectra', 'bar']:
-            plt.xlabel("Variable No")
-            if parameter in ['beta', 'VIP']:
-                plt.ylabel("{0} for PLS model".format(parameter))
+                
+        # Plot itself
+        if instrument == 'nmr':
+            if "xaxis" in locals():
+                if bar is False:
+                    _lineplots(mean, error=error, xaxis=xaxis)
+                    # To use with barplots for other types of data
+                else:
+                    _barplots(mean, error=error, xaxis=xaxis)
+                plt.xlabel("ppm")
+                plt.gca().invert_xaxis()
             else:
-                plt.ylabel("{0} for PLS component {1}".format(parameter, (component + 1)))
-            plt.show()
+                if bar is False:
+                    _lineplots(mean, error=error, xaxis=xaxis)
+                    # To use with barplots for other types of data
+                else:
+                    _barplots(mean, error=error, xaxis=xaxis)
+                plt.xlabel("Variable No")    
+        elif instrument == 'lcms':
+            if xaxis is not None and yaxis is not None:
+                _scatterplots(mean, xaxis=xaxis, yaxis=yaxis)
+        else:
+            if bar is False:
+                _lineplots(mean, error=error, xaxis=xaxis)
+                # To use with barplots for other types of data
+            else:
+                _barplots(mean, error=error, xaxis=xaxis)
+            plt.xlabel("Variable No")    
+            
+            
+        if parameter in ['beta', 'VIP']:
+            plt.ylabel("{0} for PLS model".format(parameter))
+        else:
+            plt.ylabel("{0} for PLS component {1}".format(parameter, (component + 1)))
+        plt.show()
 
-        return fig, ax
+        return None
+    
+    
+    
+    def VIP_variableselection(self, x, threshold = 'knee', sensitivity=5, exclude=False, instrument='nmr', xaxis=None, yaxis=None):
+        
+        """
+        Perform variable selection based on VIP
+        
+        :param x: X matrix
+        :param threshold: Select the maximum permited VIP for variable selection, or it would select automatically based on the 'knee' from sorted VIP
+        :param xaxis: Plot against the original X axis, otherwise it ill plot against 'Variable No'
+        :param sensitivity: For knee selection, higher sensitivity will be more permissive, lower will be more strict (default = 2)
+        :return VIP_indx_sel: Index of selected variables based on VIP
+        """
+
+        vip = self.cvParameters['Mean_VIP'].squeeze()
+        indx = np.argsort(vip)[::-1]
+        sort_vip = np.sort(vip)[::-1]
+        
+        if threshold == 'knee':
+            #find knee
+            kneedle = KneeLocator(np.arange(len(sort_vip)), sort_vip, S=sensitivity, curve='convex', direction='decreasing')
+            # To show the graphs, I don't think regular users will use it
+            # plt.style.use('ggplot')
+            # kneedle.plot_knee_normalized()
+            threshold = kneedle.knee_y
+        
+        sel = np.where(sort_vip >= threshold)[0]
+        VIP_indx_sel = indx[sel]
+                
+        fig, (ax1,ax2) = plt.subplots(2)
+        ax1.bar(np.arange(len(sort_vip)),sort_vip,color ='b')
+        ax1.bar(np.arange(len(sel)),sort_vip[sel],color ='r')
+        ax1.set_xlabel("Sorted Variables")
+        ax1.set_ylabel("VIP")
+        
+        
+        if instrument == 'nmr':   
+            if xaxis is not None:
+                ax2.plot(xaxis, np.median(x,axis=0), color ='b')
+                ax2.scatter(xaxis[VIP_indx_sel], np.median(x,axis=0)[VIP_indx_sel], c='red', s=30)
+                ax2.set_xlabel("ppm")
+                ax2.invert_xaxis()
+            else:
+                xaxis = np.arange(np.shape(x)[1])
+                ax2.plot(xaxis, np.median(x,axis=0), color ='b')
+                ax2.scatter(xaxis[VIP_indx_sel], np.median(x,axis=0)[VIP_indx_sel], c='red', s=30)
+                ax2.set_xlabel("Variables No")
+            ax2.set_ylabel("Intensity (a.u.)")
+                
+        elif instrument == 'lcms':   
+            ax2.scatter(xaxis,yaxis,c='b')
+            ax2.scatter(xaxis[VIP_indx_sel],yaxis[VIP_indx_sel],c='r')
+            ax2.set_xlabel("Retention Time (min)")
+            ax2.set_ylabel("Mass to charge ratio (m/z)")
+                
+        else:
+            xaxis = np.arange(np.shape(x)[1])
+            ax2.plot(xaxis, np.median(x,axis=0), color ='b')
+            ax2.scatter(xaxis[VIP_indx_sel], np.median(x,axis=0)[VIP_indx_sel], c='red', s=30)
+            ax2.set_xlabel("Variables No")
+            ax2.set_ylabel("Intensity (a.u.)")     
+        
+        if exclude is True:
+            raise Exception("Sorry, not implemented yet")
+            # exclude
+
+        self.VIP_indx_sel = VIP_indx_sel
+        print("Number of selected variables: {0}".format(np.shape(self.VIP_indx_sel)[0]))
+        return None
+    ### END HERE
+    
 
     def external_validation_set(self, x):
         """
@@ -1208,6 +1420,50 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         validation_set_results = dict()
 
         return validation_set_results
+
+    def _reduce_ncomps(self, n_components):
+        """
+
+        Generate a new model with a smaller set of components.
+
+        :param int ncomps: Number of ordered first N components from the original model to be kept.
+        Must be smaller than the ncomps value of the original model.
+        :return ChemometricsPLS object with reduced number of components.
+        :rtype: ChemometricsPLS
+        :raise ValueError: If number of components desired is larger than original number of components
+        :raise AttributeError: If model is not fitted.
+        """
+        try:
+            if n_components > self.n_components:
+                raise ValueError('Fit a new model with more components instead')
+            if self._isfitted is False:
+                raise AttributeError('Model not Fitted')
+
+            newmodel = deepcopy(self)
+            # newmodel.n_components = n_components
+            newmodel._n_components = n_components
+
+            newmodel.modelParameters = None
+            newmodel.cvParameters = None
+            newmodel.loadings_p = self.loadings_p[:, 0:n_components]
+            newmodel.weights_w = self.weights_w[:, 0:n_components]
+            newmodel.weights_c = self.weights_c[:, 0:n_components]
+            newmodel.loadings_q = self.loadings_q[:, 0:n_components]
+            newmodel.rotations_ws = self.rotations_ws[:, 0:n_components]
+            newmodel.rotations_cs = self.rotations_cs[:, 0:n_components]
+            newmodel.scores_t = None
+            newmodel.scores_u = None
+            newmodel.b_t = self.b_t[0:n_components, 0:n_components]
+            newmodel.b_u = self.b_u[0:n_components, 0:n_components]
+
+            # These have to be recalculated from the rotations
+            newmodel.beta_coeffs = np.dot(newmodel.rotations_ws, newmodel.loadings_q.T)
+
+            return newmodel
+        except ValueError as verr:
+            raise verr
+        except AttributeError as atter:
+            raise atter
 
     def __deepcopy__(self, memo):
         cls = self.__class__

@@ -5,6 +5,7 @@ import matplotlib
 from matplotlib.colors import Normalize
 import matplotlib.cm as cm
 from matplotlib.collections import LineCollection
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 def manhattan_plot(pvalues, beta, sig=0.05, xvalues=None):
@@ -138,7 +139,7 @@ def _barplots(mean, error=None, xaxis=None):
     return fig, ax
 
 
-def _scatterplots(mean, xaxis, yaxis, colormap=plt.cm.RdYlBu_r, xlabel='Retention Time',
+def _scatterplots(mean, xaxis=None, yaxis=None, colormap=plt.cm.RdYlBu_r, xlabel='Retention Time',
                  ylabel='Mass to charge ratio (m/z)', cbarlabel='Magnitude'):
     """
 
@@ -168,15 +169,24 @@ def _scatterplots(mean, xaxis, yaxis, colormap=plt.cm.RdYlBu_r, xlabel='Retentio
         cVectAlphas[cVectAlphas[:, 3] > 1, 3] = 1
 
     # Plot
-    ax.scatter(xaxis, yaxis, color=cVectAlphas)
-    cb.set_array(mean)
-    ax.set_xlim([min(xaxis)-1, max(xaxis)+1])
-
-    cbar = plt.colorbar(cb)
-    cbar.set_label(cbarlabel)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    return fig, ax
+    if xaxis is None and yaxis is None:
+        raise TypeError("Please, inform xaxis and yaxis")
+    elif xaxis is not None and yaxis is None:
+        raise TypeError("Please, inform yaxis")
+    elif xaxis is None and yaxis is not None:
+        raise TypeError("Please, inform xaxis")
+    else:   
+        ax.scatter(xaxis, yaxis, color=cVectAlphas)
+        cb.set_array(mean)
+        ax.set_xlim([min(xaxis)-1, max(xaxis)+1])
+    
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes('right', size='5%', pad=0.05)
+        cbar = plt.colorbar(cb,cax=cax)
+        cbar.set_label(cbarlabel)
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+    return None
 
 
 def plotLoadings(pcaLoadings, ppm, spectra, title='', figures=None, savePath=None, figureFormat='png', dpi=72, figureSize=(11, 7)):
