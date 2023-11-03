@@ -592,7 +592,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
 
             cv_rotations_ws = np.zeros((ncvrounds, x_nvars, self.n_components))
             cv_rotations_cs = np.zeros((ncvrounds, y_nvars, self.n_components))
-            cv_betacoefs = np.zeros((ncvrounds, x_nvars, y_nvars))
+            cv_betacoefs = np.zeros((ncvrounds, y_nvars, x_nvars))
             cv_vipsw = np.zeros((ncvrounds, x_nvars))
 
             cv_trainprecision = np.zeros(ncvrounds)
@@ -695,7 +695,12 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 cv_weights_c[cvround, :, :] = cv_pipeline.weights_c
                 cv_rotations_ws[cvround, :, :] = cv_pipeline.rotations_ws
                 cv_rotations_cs[cvround, :, :] = cv_pipeline.rotations_cs
-                cv_betacoefs[cvround, :, :] = cv_pipeline.beta_coeffs #changed here
+                # Have to add this because the recent change in ScikitLearn (changed coef direction),
+                # once it is stable it can be removed
+                try:
+                    cv_betacoefs[cvround, :, :] = cv_pipeline.beta_coeffs.T
+                except:
+                    cv_betacoefs[cvround, :, :] = cv_pipeline.beta_coeffs #changed here
                 cv_vipsw[cvround, :] = cv_pipeline.VIP()
 
                 # Training metrics
@@ -1162,7 +1167,8 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 perm_weights_w[permutation, :, :] = permute_class.weights_w
                 perm_rotations_cs[permutation, :, :] = permute_class.rotations_cs
                 perm_rotations_ws[permutation, :, :] = permute_class.rotations_ws
-                # Same thing happened here. It seems the coefficient keeps changing dimension
+                # Have to add this because the recent change in ScikitLearn (changed coef direction),
+                # once it is stable it can be removed
                 try:
                     perm_beta[permutation, :, :] = permute_class.beta_coeffs
                 except:
