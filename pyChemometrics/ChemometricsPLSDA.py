@@ -1146,7 +1146,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             perm_testaccuracy = np.zeros(nperms)
             perm_testauc = np.zeros(nperms)
             perm_testzerooneloss = np.zeros(nperms)
-            # perm_testf1 = np.zeros(nperms)
+            perm_testf1 = np.zeros(nperms)
             perm_testroc_curve = list()
             perm_testconfusionmatrix = list()
 
@@ -1178,7 +1178,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 perm_testauc[permutation] = permute_class.cvParameters['DA']['Mean_AUC']
                 perm_testprecision[permutation] = permute_class.cvParameters['DA']['Mean_Precision']
                 perm_testrecall[permutation] = permute_class.cvParameters['DA']['Mean_Recall']
-                # perm_testf1[permutation] = permute_class.cvParameters['DA']['Mean_f1']
+                perm_testf1[permutation] = permute_class.cvParameters['DA']['Mean_f1']
                 perm_testzerooneloss[permutation] = permute_class.cvParameters['DA']['Mean_0-1Loss']
                 perm_testaccuracy[permutation] = permute_class.cvParameters['DA']['Mean_Accuracy']
 
@@ -1389,6 +1389,8 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 plt.stem(self.cvParameters['DA']['Q2Y'], 1, linefmt='red')
             elif metric == 'AUC':
                 plt.stem(self.cvParameters['DA']['Mean_AUC'], 1, linefmt='red')
+                plt.xlabel('AUC')
+                plt.ylabel('Counts')
             elif metric == 'f1':
                 plt.stem(self.cvParameters['DA']['Mean_f1'], 1, linefmt='red')
             elif metric == 'Accuracy':
