@@ -1,4 +1,5 @@
 import numpy as np
+import seaborn as sns
 import matplotlib.pyplot as plt
 import plotly.graph_objs as go
 import matplotlib
@@ -8,7 +9,7 @@ from matplotlib.collections import LineCollection
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
-def manhattan_plot(pvalues, beta, sig=0.05, xvalues=None):
+def manhattan_plot(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None, yaxis=None):
     """
 
     :param np.ndarray pvalues: Numpy array with the p-values. These can also be adjusted, or fdr corrected/estimates
@@ -17,25 +18,61 @@ def manhattan_plot(pvalues, beta, sig=0.05, xvalues=None):
     :param np.ndarray xvalues: Variable names
     :return: Matplotlib figure with the Manhattan plot
     """
-
+    
     logged_p = -np.log10(pvalues)
     fig, ax = plt.subplots()
     ax.set_title("Manhattan plot")
-    ax.set_ylabel(r"Sign($\beta$) $\times$ - $log_{10}$p-value")
-    ax.set_xlabel("$\delta$ppm")
-    if xvalues is None:
-        xvalues = np.arange(pvalues.size)
-    scatter_plot = ax.scatter(xvalues, np.sign(beta) *logged_p, s=10, c=beta)
-    ax.axhline(-np.log10(sig), linestyle='--')
-    ax.axhline(- 1*-np.log10(sig), linestyle='--')
+    
+    if instrument == 'nmr':
 
-    # plt.plot(np.mean(X, axis=0).T)
-    fig.colorbar(scatter_plot)
-    ax.invert_xaxis()
-    plt.show()
+        ax.set_ylabel(r"Sign($\beta$) $\times$ - $log_{10}$p-value")
+        ax.set_xlabel("$\delta$ppm")
+        if xaxis is None:
+            xaxis = np.arange(pvalues.size)
+        scatter_plot = ax.scatter(xaxis, np.sign(beta) *logged_p, s=10, c=beta)
+        ax.axhline(-np.log10(sig), linestyle='--')
+        ax.axhline(- 1*-np.log10(sig), linestyle='--')
+    
+        # plt.plot(np.mean(X, axis=0).T)
+        fig.colorbar(scatter_plot)
+        ax.invert_xaxis()
+        plt.show()
+        
+    elif instrument == 'lcms':
+        
+        ax.set_ylabel('Mass to charge ratio (m/z)')
+        ax.set_xlabel('Retention Time')
+        
+        colormap=plt.cm.coolwarm
+        
+        # Define colorbar and colormap limits
+        maxval = np.max([np.abs(np.max(beta)), np.abs(np.min(beta))])
+        maxcol = maxval
+        mincol = -maxval
+        new_cmap = _shiftedColorMap(colormap, start=0, midpoint=1 - maxcol/(maxcol + np.abs(mincol)), stop=1, name='new')   
+        
+        # Group significant values
+        intensity = np.sign(beta) *logged_p  # The vector for grouping in colormap
+        group = np.zeros(np.shape(pvalues))
+        group[intensity>-np.log10(sig)] = 1
+        group[intensity<- 1*-np.log10(sig)] = 1
+        
+        # Create a scatter plot with a colormap based on the third vector
+        ax = plt.scatter(x=xaxis[group == 0], y=yaxis[group == 0], color='gray', s =10)
+        # Show only the selected group of points with a different marker style or color
+        ax = sns.scatterplot(x=xaxis[group == 1], y=yaxis[group == 1], hue=beta[group == 1], palette=new_cmap)
+        # Customize the color bar
+        norm = Normalize(vmin=mincol, vmax=maxcol)
+        sm = plt.cm.ScalarMappable(cmap=new_cmap, norm=norm)
+        sm.set_array([])
+        # Remove the legend and add a colorbar
+        ax.get_legend().remove()
+        cbar = ax.figure.colorbar(sm)
+            
+        cbar.set_label(r"Sign($\beta$) $\times$ - $log_{10}$p-value")
 
 
-def interactive_manhattan(pvalues, beta, sig=0.05, xvalues=None):
+def interactive_manhattan(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None, yaxis=None):
     """
 
     :param np.ndarray pvalues: Numpy array with the p-values. These can also be adjusted, or fdr corrected/estimates
@@ -46,81 +83,136 @@ def interactive_manhattan(pvalues, beta, sig=0.05, xvalues=None):
     """
 
     data = []
-
-    if xvalues is None:
-        xvalues = np.arange(pvalues.size)
-
     logged_p = -np.log10(pvalues)
-    yvals = np.sign(beta) * logged_p
 
-    W_str = ["%.4f" % i for i in beta]  # Format text for tooltips
-    maxcol = np.max(abs(beta))
-
-    Xvals = xvalues
-    hovertext = ["ppm: %.4f; W: %s" % i for i in zip(Xvals, W_str)]  # Text for tooltips
-
-    point_text = ["p-value: " + pval for pval in pvalues.astype(str)]
-
-    manhattan_scatter = go.Scattergl(
-        x=Xvals,
-        y=yvals,
-        mode='markers',
-        marker=dict(color=beta, size=5, colorscale='RdBu',
-                    cmin=-maxcol, cmax=maxcol, showscale=True),
-        text=point_text)
-
-    data.append(manhattan_scatter)
-
-    xReverse = 'reversed'
-    Xlabel = chr(948) + 'ppm 1H'
-    Ylabel = r"Sign($\beta$) $\times$ - $log_{10}$p-value"
-
-    # Add annotation
-    layout = {
-        'xaxis': dict(
-            title=Xlabel,
-            autorange=xReverse),
-        'yaxis': dict(title=Ylabel),
-        'title': 'Manhattan plot',
-        'hovermode': 'closest',
-        'bargap': 0,
-        'barmode': 'stack',
-        'shapes': [{
-            'type': 'line',
-            'x0': min(Xvals),
-            'y0': np.log10(sig),
-            'x1': max(Xvals),
-            'y1': np.log10(sig),
-            'line': {
-                'color': 'rgb(50, 171, 96)',
-                'width': 4,
-                'dash': 'dashdot'}},
-            {
+    if instrument == 'nmr':
+        if xaxis is None:
+            xaxis = np.arange(pvalues.size)
+    
+        yvals = np.sign(beta) * logged_p
+    
+        W_str = ["%.4f" % i for i in beta]  # Format text for tooltips
+        maxcol = np.max(abs(beta))
+    
+        Xvals = xaxis
+        hovertext = ["ppm: %.4f; W: %s" % i for i in zip(Xvals, W_str)]  # Text for tooltips
+    
+        point_text = ["p-value: " + pval for pval in pvalues.astype(str)]
+    
+        manhattan_scatter = go.Scattergl(
+            x=Xvals,
+            y=yvals,
+            mode='markers',
+            marker=dict(color=beta, size=5, colorscale='RdBu',
+                        cmin=-maxcol, cmax=maxcol, showscale=True),
+            text=point_text)
+    
+        data.append(manhattan_scatter)
+    
+        xReverse = 'reversed'
+        Xlabel = chr(948) + 'ppm 1H'
+        Ylabel = r"Sign($\beta$) $\times$ - $log_{10}$p-value"
+    
+        # Add annotation
+        layout = {
+            'xaxis': dict(
+                title=Xlabel,
+                autorange=xReverse),
+            'yaxis': dict(title=Ylabel),
+            'title': 'Manhattan plot',
+            'hovermode': 'closest',
+            'bargap': 0,
+            'barmode': 'stack',
+            'shapes': [{
                 'type': 'line',
                 'x0': min(Xvals),
-                'y0': -np.log10(sig),
+                'y0': np.log10(sig),
                 'x1': max(Xvals),
-                'y1': -np.log10(sig),
+                'y1': np.log10(sig),
                 'line': {
                     'color': 'rgb(50, 171, 96)',
                     'width': 4,
-                    'dash': 'dashdot'}}]}
-    fig = {
-        'data': data,
-        'layout': layout,
-    }
+                    'dash': 'dashdot'}},
+                {
+                    'type': 'line',
+                    'x0': min(Xvals),
+                    'y0': -np.log10(sig),
+                    'x1': max(Xvals),
+                    'y1': -np.log10(sig),
+                    'line': {
+                        'color': 'rgb(50, 171, 96)',
+                        'width': 4,
+                        'dash': 'dashdot'}}]}
+        fig = {
+            'data': data,
+            'layout': layout,
+        }
+    elif instrument == 'lcms':
+        
+        # Define colorbar and colormap limits
+        maxval = np.max([np.abs(np.max(beta)), np.abs(np.min(beta))])
+        maxcol = maxval
+        mincol = -maxval
+        
+        # Group significant values
+        intensity = np.sign(beta) *logged_p  # The vector for grouping in colormap
+        group = np.zeros(np.shape(pvalues))
+        group[intensity>-np.log10(sig)] = 1
+        group[intensity<- 1*-np.log10(sig)] = 1
+    
+        # First plot - unselected Features
+        manhattan_scatter = go.Scattergl(name="non-Significant",
+            x=xaxis[group == 0],
+            y=yaxis[group == 0],
+            mode='markers',
+            opacity=0.5,
+            marker=dict(color='gray', size=5))
+        
+        # Second plot - selected Features
+        manhattan_scatter_sel = go.Scattergl(name="Significant",
+            x=xaxis[group == 1],
+            y=yaxis[group == 1],
+            mode='markers',
+            opacity=1,
+#             marker=dict(color=beta[group == 1], size=10, colorscale=[[0, 'darkblue'], [0.5, 'cornsilk'], [1, 'darkred']],
+            marker=dict(color=beta[group == 1], size=10, colorscale='RdBu_r',
+                        cmin=-maxcol, cmax=maxcol, showscale=True))
+
+        # Append data
+        data = [manhattan_scatter,manhattan_scatter_sel]
+
+        # Create labels
+        Xlabel = 'Mass to charge ratio (m/z)'
+        Ylabel = r"Sign($\beta$) $\times$ - $log_{10}$p-value"
+    
+        # Add annotation
+        layout = {
+            'xaxis': dict(title=Xlabel),
+            'yaxis': dict(title=Ylabel),
+            'title': 'Manhattan plot',
+            'hovermode': 'closest',
+            'bargap': 0,
+            'barmode': 'stack',
+            'legend': dict(
+                yanchor="top",
+                y=0.99,
+                xanchor="right",
+                x=0.99)}
+        fig = {
+            'data': data,
+            'layout': layout,
+        }
 
     return fig
 
-
-def _lineplots(mean, error=None, xaxis=None):
+def _lineplots(mean, error=None, xaxis=None,color=None,linestyle=None):
 
     fig, ax = plt.subplots()
     if xaxis is None:
-        ax.plot(mean)
+        ax.plot(mean,color=color, linestyle=linestyle)
         xaxis = range(mean.size)
     else:
-        ax.plot(xaxis, mean)
+        ax.plot(xaxis, mean, color=color, linestyle=linestyle)
     if error is not None:
         ax.fill_between(xaxis, mean - error, mean + error, alpha=0.2, color='red')
     return fig, ax

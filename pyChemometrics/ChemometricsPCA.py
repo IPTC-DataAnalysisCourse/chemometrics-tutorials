@@ -12,6 +12,7 @@ from matplotlib.colors import Normalize
 import matplotlib as mpl
 import scipy.stats as st
 import matplotlib.cm as cm
+from pyChemometrics.plotting_utils import _scatterplots, _lineplots, _shiftedColorMap
 
 __author__ = 'gscorreia89'
 # updated by flsoares232 on 17-10-2023
@@ -389,7 +390,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
 
             # Initialise predictive residual sum of squares variable (for whole CV routine)
             total_press = 0
-            press = np.empty((0,8600), int)
+            press = np.empty((0,np.shape(x)[1]), int)
             # Calculate Sum of Squares SS in whole dataset
             ssv = np.sum((cv_pipeline.scaler.transform(x)) ** 2, axis=0)
             ss = np.sum(ssv)
@@ -427,7 +428,8 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
                 # To perform the Q2v
                 rs = np.square(xtest_scaled - pred_x)
                 rss = np.sum(rs)
-                press = np.append(press,rs,axis=0)
+                # press = np.append(press,rs,axis=1)
+                press = np.append(press,rs,axis=0) 
 
                 rss = np.sum(np.square(xtest_scaled - pred_x))
                 total_press += rss
@@ -649,7 +651,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
                       "at component {0}".format(plateau + 1))
         plt.show()
 
-        return ax
+        return
 
     def repeated_cv(self, x, total_comps=7, repeats=15, cv_method=KFold(n_splits=7,shuffle=True)):
         """
@@ -723,7 +725,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
         return variable_selected
     ## End of addition
 
-    def plot_loadings(self, component=1, bar=False, sigma=2, x=None):
+    def plot_loadings(self, ncomp=1, bar=False, sigma=2, xaxis=None, yaxis=None, instrument='nmr'):
         """
         Loading plot figure for the selected component. With uncertainty estimation if the cross validation method
         has been called before.
@@ -734,42 +736,52 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
         :return: Loading plot figure
         """
         # Adjust the indexing so user can refer to component 1 as component 1 instead of 0
-        component -= 1
-        fig, ax = plt.subplots()
+        ncomp -= 1
 
-        if x is None:
-            x_to_fill = range(self.loadings[component, :].size)
-        else:
-            x_to_fill = x
+        if xaxis is None and instrument == 'nmr':
+            x_to_fill = range(self.loadings[ncomp, :].size)
 
         # For "spectrum/continuous like plotting"
         if bar is False:
-            if x is None:
-                ax.plot(self.loadings[component, :])
-            else:
-                ax.plot(x, self.loadings[component, :])
+            if instrument == 'nmr':
+                if xaxis is None:
+                    _lineplots(self.loadings[ncomp, :])
+                else:
+                    _lineplots(self.loadings[ncomp, :],xaxis = xaxis)
+    
+                if self.cvParameters is not None:
+                    error = sigma * self.cvParameters['Stdev_Loadings'][ncomp]
+                    if xaxis is None:
+                        _lineplots(self.loadings[ncomp, :], error=error, xaxis=x_to_fill)
+                    else:
+                        _lineplots(self.loadings[ncomp, :], error=error, xaxis=xaxis)
+                
+                plt.xlabel("ppm")
+                plt.gca().invert_xaxis()    
+                plt.ylabel("Loading for PC{0}".format((ncomp + 1)))                                                                  
+            elif instrument == 'lcms':
+                if xaxis is None and yaxis is None:
+                    raise
+                elif xaxis is None:
+                    raise
+                elif yaxis is None:
+                    raise
+                else:
+                    _scatterplots(self.loadings[ncomp, :], xaxis=xaxis, yaxis=yaxis,cbarlabel="Loading for PC{0}".format((ncomp + 1)))
 
-            if self.cvParameters is not None:
-                ax.fill_between(x_to_fill,
-                self.cvParameters['Mean_Loadings'][component] - sigma*self.cvParameters['Stdev_Loadings'][component],
-                self.cvParameters['Mean_Loadings'][component] + sigma*self.cvParameters['Stdev_Loadings'][component],
-                alpha=0.2, color='red')
+        # # To use with barplots for other types of data
+        # else:
+        #     if self.cvParameters is not None:
+        #         ax.errorbar(x_to_fill,
+        #                      height=self.cvParameters['Mean_Loadings'][:, ncomp],
+        #                      yerr=2 * self.cvParameters['Stdev_Loadings'][:, ncomp],
+        #                      width=0.2)
+        #     else:
+        #         ax.bar(x_to_fill, height=self.loadings[ncomp, :], width=0.2)
 
-        # To use with barplots for other types of data
-        else:
-            if self.cvParameters is not None:
-                ax.errorbar(x_to_fill,
-                             height=self.cvParameters['Mean_Loadings'][:, component],
-                             yerr=2 * self.cvParameters['Stdev_Loadings'][:, component],
-                             width=0.2)
-            else:
-                ax.bar(x_to_fill, height=self.loadings[component, :], width=0.2)
+        # plt.show()
 
-        ax.set_xlabel("Variable No")
-        ax.set_ylabel("Loading for PC{0}".format((component + 1)))
-        plt.show()
-
-        return ax
+        return
 
     def plot_dmodx(self, x, label_outliers=False, alpha=0.05):
         """
@@ -898,6 +910,82 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
             raise terr
         except ValueError as verr:
             raise verr
+            
+    def plot_outliers(self, x, outlier_idx, sigma=1.25, instrument='nmr', xaxis=None, yaxis=None):
+        """
+        Leverage (h) per observation, with a red line plotted at y = 1/Number of samples (expected
+        :return: Plot with observation leverages (h)
+        """
+        # Use the center of the model as control 
+        model_center_sample = np.mean(x,axis=0)
+        std_model_sample = np.std(x,axis=0)
+        # Reconstruct spectra from the 5 outliers in PC2
+        out_scores = self.scores[outlier_idx, :]
+        outliers = self.inverse_transform(out_scores)
+        # Reconstruct a spectrum for the "mean" of these outliers
+        mean_outlier = self.inverse_transform(out_scores.mean(axis=0))
+        
+        fig = plt.figure()  # an empty figure with no Axes
+        fig, ax = plt.subplots()  # a figure with a single Axes
+        
+        if instrument == 'nmr':
+            if xaxis is None:
+                xaxis = np.arange(model_center_sample.size)            
+            ax.plot(xaxis, model_center_sample, 'b')
+            # The outliers plotted in dashed red line
+            ax.plot(xaxis, outliers.T, 'r--',)
+            # The mean outlier plotted in green
+            ax.plot(xaxis, mean_outlier, 'g:')
+            
+            ax.set_xlabel("$\delta$ppm")
+            ax.invert_xaxis()
+            plt.show()
+        elif instrument == 'lcms':
+            if xaxis is None:
+                raise
+            elif yaxis is None:
+                raise
+            elif xaxis is None and yaxis is None:
+                raise
+            else:
+                ax.set_ylabel('Mass to charge ratio (m/z)')
+                ax.set_xlabel('Retention Time (min.)')
+                
+                colormap=plt.cm.coolwarm
+                
+                # Define colorbar and colormap limits
+                maxval = np.max([np.abs(np.max(mean_outlier)), np.abs(np.min(outliers))])
+                maxcol = maxval
+                mincol = -maxval
+                new_cmap = _shiftedColorMap(colormap, start=0, midpoint=1 - maxcol/(maxcol + np.abs(mincol)), stop=1, name='new')
+                
+                # Group significant values
+                IC_min = model_center_sample - sigma*std_model_sample
+                IC_max = model_center_sample + sigma*std_model_sample
+                group = np.zeros(np.shape(model_center_sample))
+                group[mean_outlier<IC_min] = 1
+                group[mean_outlier>IC_max] = 1
+                
+                # Create a scatter plot with a colormap based on the third vector
+                plt.scatter(x=xaxis[group == 0], y=yaxis[group == 0], color='gray', s=10)
+                
+                # Create a scatter plot with a colormap based on the third vector
+                scatter = sns.scatterplot(x=xaxis[group == 1], y=yaxis[group == 1], hue=model_center_sample[group == 1], palette=new_cmap)
+                
+                # Customize the color bar
+                norm = Normalize(vmin=mincol, vmax=maxcol)
+                sm = plt.cm.ScalarMappable(cmap=new_cmap, norm=norm)
+                sm.set_array([])
+                
+                # Add a colorbar using the scatter plot's axes
+                cbar = plt.colorbar(sm, ax=scatter.axes)
+                cbar.set_label("Magnitude")
+                # Remove the legend
+                scatter.get_legend().remove()
+                
+                plt.show()        
+        
+        
     ## End of addition
 
     def plot_leverages(self):
