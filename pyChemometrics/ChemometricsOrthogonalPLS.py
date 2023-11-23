@@ -670,7 +670,7 @@ class ChemometricsOrthogonalPLS(BaseEstimator, RegressorMixin, TransformerMixin)
         return None
 
     ####### flsoares232 version - Updated 20-10-2023
-    def plot_model_parameters(self, parameter='w_pred', orthogonal_component=1, cross_val=False, sigma=2, bar=False, xaxis=None, yaxis=None, instrument=None):
+    def plot_model_parameters(self, parameter='w_pred', orthogonal_component=1, cross_val=False, sigma=2, bar=False, xaxis=None, yaxis=None, instrument=None, marker_size=3):
         
         """
         Plot different model parameters related with the variables
@@ -685,7 +685,7 @@ class ChemometricsOrthogonalPLS(BaseEstimator, RegressorMixin, TransformerMixin)
         :return:
         """
     
-        choices = {'w_pred': self.w_pred, 'p_pred': self.p_pred, 'w_ortho': self.w_ortho, 'p_ortho': self.p_ortho}
+        choices = {'w_pred': self.w_pred, 'p_pred': self.p_pred, 'w_ortho': self.w_ortho, 'p_ortho': self.p_ortho, 'beta': self.beta_coeffs, 'VIP': self.VIP()}
         choices_cv = {'wpred': 'Wpred_w_pred', }
     
         # decrement component to adjust for python indexing
@@ -693,7 +693,7 @@ class ChemometricsOrthogonalPLS(BaseEstimator, RegressorMixin, TransformerMixin)
         
         # Beta and VIP don't depend on components so have an exception status here
         if cross_val is True:
-            if parameter in ['w_pred', 'p_pred']:
+            if parameter in ['w_pred', 'p_pred', 'beta', 'VIP']:
                 mean = self.cvParameters['Mean_' + choices_cv[parameter]].squeeze()
                 error = sigma * self.cvParameters['Stdev_' + choices_cv[parameter]].squeeze()
             else:
@@ -701,7 +701,7 @@ class ChemometricsOrthogonalPLS(BaseEstimator, RegressorMixin, TransformerMixin)
                 error = sigma * self.cvParameters['Stdev_' + choices_cv[parameter]][:, orthogonal_component]
         else:
             error = None
-            if parameter in ['w_pred', 'p_pred']:
+            if parameter in ['w_pred', 'p_pred', 'beta', 'VIP']:
                 mean = choices[parameter].squeeze()
             else:
                 mean = choices[parameter][:, orthogonal_component]
@@ -725,7 +725,7 @@ class ChemometricsOrthogonalPLS(BaseEstimator, RegressorMixin, TransformerMixin)
                 plt.xlabel("Variable No")    
         elif instrument == 'lcms':
             if xaxis is not None and yaxis is not None:
-                _scatterplots(mean, xaxis=xaxis, yaxis=yaxis)
+                _scatterplots(mean, xaxis=xaxis, yaxis=yaxis, marker_size=marker_size)
         else:
             if bar is False:
                 _lineplots(mean, error=error, xaxis=xaxis)

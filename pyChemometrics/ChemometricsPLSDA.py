@@ -1251,8 +1251,8 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         xscaled = self.scaler.transform(x)
         residuals = np.sum(np.square(xscaled - x_reconstructed), axis=1)
         return residuals
-
-    def scree_plot(self, x, y, total_comps=5):
+    
+    def scree_cv(self, x, y, total_comps=5):
         """
 
         :param x: Data to use in the scree plot
@@ -1260,7 +1260,6 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         :param total_comps:
         :return:
         """
-        fig, ax = plt.subplots()
         models = list()
         for n_components in range(1, total_comps + 1):
             currmodel = deepcopy(self)
@@ -1272,34 +1271,71 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
         q2 = np.array([x.cvParameters['Q2Y'] for x in models])
         r2 = np.array([x.modelParameters['R2Y'] for x in models])
         auc = np.array([x.cvParameters['DA']['Mean_AUC'][0] for x in models])
+        mcc = np.array([x.cvParameters['DA']['Mean_MCC'] for x in models])
+        recall = np.array([x.cvParameters['DA']['Mean_Recall'] for x in models])
+        precision = np.array([x.cvParameters['DA']['Mean_Precision']for x in models])
+        f1 = np.array([x.cvParameters['DA']['Mean_f1'] for x in models])
+        accuracy = np.array([x.cvParameters['DA']['Mean_Accuracy'] for x in models])
+        
+        # Store everything...
+        self.screeCV = {'Q2Y': q2, 'R2Y': r2, 'AUC': auc,
+                        'MCC': mcc, 'Recall': recall,
+                        'Precision': precision, 'F1': f1,
+                        'Accuracy': accuracy}
+        
+        return None
+        
 
-        ax.bar([x - 0.2 for x in range(1, total_comps + 1)], height=r2, width=0.2)
-        ax.bar([x for x in range(1, total_comps + 1)], height=q2, width=0.2)
-        ax.bar([x + 0.2 for x in range(1, total_comps + 1)], height=auc, width=0.2)
+    def scree_plot(self,metric = ['Q2Y','R2Y','AUC']):
+        """
 
-        ax.legend(['R2', 'Q2', 'Mean_AUC'])
+        :param x: Data to use in the scree plot
+        :param y:
+        :param total_comps:
+        :return:
+        """
+        fig, ax = plt.subplots()
+
+        if np.shape(metric)[0] == 1:
+            sup_list = ['Q2Y','R2Y']
+            metric = sup_list + metric
+        elif np.shape(metric)[0] == 2:
+            sup_list = ['Q2Y']
+            metric = sup_list + metric
+            
+        b1 = self.screeCV[metric[0]]
+        b2 = self.screeCV[metric[1]]
+        b3 = self.screeCV[metric[2]]
+        
+        total_comps = np.shape(self.screeCV[metric[2]])[0]
+
+        ax.bar([x - 0.2 for x in range(1, total_comps + 1)], height=b1, width=0.2)
+        ax.bar([x for x in range(1, total_comps + 1)], height=b2, width=0.2)
+        ax.bar([x + 0.2 for x in range(1, total_comps + 1)], height=b3, width=0.2)
+
+        ax.legend(metric)
         ax.set_xlabel("Number of components")
-        ax.set_ylabel("R2/Q2Y/AUC")
+        ax.set_ylabel((metric[0] + "/" + metric[1] + "/" + metric[2]))
 
         # Specific case where n comps = 2 #
-        if q2.size == 2:
-            plateau_index = np.where(np.diff(q2) / q2[0] < 0.05)[0]
+        if b1.size == 2:
+            plateau_index = np.where(np.diff(b1) / b1[0] < 0.05)[0]
             if plateau_index.size == 0:
                 print("Consider exploring a higher level of components")
             else:
-                plateau = np.min(np.where(np.diff(q2)/q2[0] < 0.05)[0])
+                plateau = np.min(np.where(np.diff(b1)/b1[0] < 0.05)[0])
                 ax.vlines(x=(plateau + 1), ymin=0, ymax=1, colors='red', linestyles='dashed')
-                print("Q2Y measure stabilizes (increase of less than 5% of previous value or decrease) "
+                print(metric[0] + " measure stabilizes (increase of less than 5% of previous value or decrease) "
                       "at component {0}".format(plateau + 1))
 
         else:
-            plateau_index = np.where((np.diff(q2) / q2[0:-1]) < 0.05)[0]
+            plateau_index = np.where((np.diff(b1) / b1[0:-1]) < 0.05)[0]
             if plateau_index.size == 0:
                 print("Consider exploring a higher level of components")
             else:
                 plateau = np.min(plateau_index)
                 ax.vlines(x=(plateau + 1), ymin=0, ymax=1, colors='red', linestyles='dashed')
-                print("Q2Y measure stabilizes (increase of less than 5% of previous value or decrease) "
+                print(metric[0] + "measure stabilizes (increase of less than 5% of previous value or decrease) "
                       "at component {0}".format(plateau + 1))
 
         plt.show()

@@ -232,7 +232,7 @@ def _barplots(mean, error=None, xaxis=None):
 
 
 def _scatterplots(mean, xaxis=None, yaxis=None, colormap=plt.cm.RdYlBu_r, xlabel='Retention Time',
-                 ylabel='Mass to charge ratio (m/z)', cbarlabel='Magnitude'):
+                 ylabel='Mass to charge ratio (m/z)', cbarlabel='Magnitude', marker_size=None):
     """
 
     """
@@ -268,7 +268,7 @@ def _scatterplots(mean, xaxis=None, yaxis=None, colormap=plt.cm.RdYlBu_r, xlabel
     elif xaxis is None and yaxis is not None:
         raise TypeError("Please, inform xaxis")
     else:   
-        ax.scatter(xaxis, yaxis, color=cVectAlphas)
+        ax.scatter(xaxis, yaxis, color=cVectAlphas, s=marker_size)
         cb.set_array(mean)
         ax.set_xlim([min(xaxis)-1, max(xaxis)+1])
     
