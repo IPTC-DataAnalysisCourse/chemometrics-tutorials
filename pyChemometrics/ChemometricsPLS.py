@@ -1160,8 +1160,32 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             ax.set_ylabel("T[{0}]".format((comps[1] + 1)))
         plt.show()
         return None
+    
+    def scree_cv(self, x, y, total_comps=5):
+        """
 
-    def scree_plot(self, x, y, total_comps=5):
+        :param x: Data to use in the scree plot
+        :param y:
+        :param total_comps:
+        :return:
+        """
+        models = list()
+        for n_components in range(1, total_comps + 1):
+            currmodel = deepcopy(self)
+            currmodel.n_components = n_components
+            currmodel.fit(x, y)
+            currmodel.cross_validation(x, y)
+            models.append(currmodel)
+
+        q2 = np.array([x.cvParameters['PLS']['Q2Y'] for x in models])
+        r2 = np.array([x.modelParameters['PLS']['R2Y'] for x in models])
+        
+        # Store everything...
+        self.screeCV = {'Q2Y': q2, 'R2Y': r2}
+        
+        return None
+
+    def scree_plot(self, metric = ['Q2Y','R2Y']):
         """
 
         :param x:
@@ -1170,36 +1194,31 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :return:
         """
         fig, ax = plt.subplots()
+            
+        b1 = self.screeCV[metric[0]]
+        b2 = self.screeCV[metric[1]]
+        
+        total_comps = np.shape(self.screeCV[metric[2]])[0]      
 
-        models = list()
-        for n_components in range(1, total_comps + 1):
-            currmodel = deepcopy(self)
-            currmodel.n_components = n_components
-            currmodel.fit(x, y)
-            currmodel.cross_validation(x, y)
-            models.append(currmodel)
-            q2 = np.array([x.cvParameters['PLS']['Q2Y'] for x in models])
-            r2 = np.array([x.modelParameters['PLS']['R2Y'] for x in models])
-
-        ax.bar([x - 0.1 for x in range(1, total_comps + 1)], height=r2, width=0.2)
-        ax.bar([x + 0.1 for x in range(1, total_comps + 1)], height=q2, width=0.2)
+        ax.bar([x - 0.1 for x in range(1, total_comps + 1)], height=b2, width=0.2)
+        ax.bar([x + 0.1 for x in range(1, total_comps + 1)], height=b1, width=0.2)
         ax.legend(['R2', 'Q2'])
         ax.set_xlabel("Number of components")
         ax.set_ylabel("R2/Q2Y")
 
         # Specific case where n comps = 2
-        if q2.size == 2:
-            plateau_index = np.where(np.diff(q2) / q2[0] < 0.05)[0]
+        if b1.size == 2:
+            plateau_index = np.where(np.diff(b1) / b1[0] < 0.05)[0]
             if plateau_index.size == 0:
                 print("Consider exploring a higher level of components")
             else:
-                plateau = np.min(np.where(np.diff(q2)/q2[0] < 0.05)[0])
+                plateau = np.min(np.where(np.diff(b1)/b1[0] < 0.05)[0])
                 ax.vlines(x=(plateau + 1), ymin=0, ymax=1, colors='red', linestyles='dashed')
                 print("Q2Y measure stabilizes (increase of less than 5% of previous value or decrease) "
                       "at component {0}".format(plateau + 1))
 
         else:
-            plateau_index = np.where((np.diff(q2) / q2[0:-1]) < 0.05)[0]
+            plateau_index = np.where((np.diff(b1) / b1[0:-1]) < 0.05)[0]
             if plateau_index.size == 0:
                 print("Consider exploring a higher level of components")
             else:
@@ -1258,7 +1277,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
             raise exp
     
     ####### flsoares232 version - Updated 20-10-2023
-    def plot_model_parameters(self, parameter='w', component=1, cross_val=False, sigma=2, bar=False, xaxis=None, yaxis=None, instrument=None):
+    def plot_model_parameters(self, parameter='w', component=1, cross_val=False, sigma=2, bar=False, xaxis=None, yaxis=None, instrument=None, marker_size=3):
         
         """
         Plot different model parameters related with the variables
@@ -1317,7 +1336,7 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 plt.xlabel("Variable No")    
         elif instrument == 'lcms':
             if xaxis is not None and yaxis is not None:
-                _scatterplots(mean, xaxis=xaxis, yaxis=yaxis)
+                _scatterplots(mean, xaxis=xaxis, yaxis=yaxis, marker_size=marker_size)
         else:
             if bar is False:
                 _lineplots(mean, error=error, xaxis=xaxis)
