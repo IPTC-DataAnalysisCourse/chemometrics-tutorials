@@ -8,6 +8,12 @@ import matplotlib.cm as cm
 from matplotlib.collections import LineCollection
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
+# originally dveloped by:
+__author__ = 'gscorreia89'
+
+# minor updates and maintenance:
+__authors__ = ["flsoares", "kopeckylukas"]
+__date__ = "2023/11/28"
 
 def manhattan_plot(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None, yaxis=None):
     """
@@ -232,7 +238,7 @@ def _barplots(mean, error=None, xaxis=None):
 
 
 def _scatterplots(mean, xaxis=None, yaxis=None, colormap=plt.cm.RdYlBu_r, xlabel='Retention Time',
-                 ylabel='Mass to charge ratio (m/z)', cbarlabel='Magnitude', marker_size=None):
+                 ylabel='Mass to charge ratio (m/z)', cbarlabel='Magnitude', marker_size=None, alpha=None):
     """
 
     """
@@ -268,13 +274,13 @@ def _scatterplots(mean, xaxis=None, yaxis=None, colormap=plt.cm.RdYlBu_r, xlabel
     elif xaxis is None and yaxis is not None:
         raise TypeError("Please, inform xaxis")
     else:   
-        ax.scatter(xaxis, yaxis, color=cVectAlphas, s=marker_size)
+        ax.scatter(xaxis, yaxis, color=cVectAlphas, s=marker_size, alpha=alpha)
         cb.set_array(mean)
         ax.set_xlim([min(xaxis)-1, max(xaxis)+1])
     
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
-        cbar = plt.colorbar(cb,cax=cax)
+        cbar = plt.colorbar(cb, cax=cax)
         cbar.set_label(cbarlabel)
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)

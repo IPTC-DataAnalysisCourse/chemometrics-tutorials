@@ -14,8 +14,12 @@ from kneed import KneeLocator
 from pyChemometrics.plotting_utils import _scatterplots
 from .plotting_utils import _lineplots, _barplots
 
+# originally dveloped by:
 __author__ = 'gscorreia89'
-# updated by flsoares on 17-10-2023
+
+# minor updates and maintenance:
+__authors__ = ["flsoares", "kopeckylukas"]
+__date__ = "2023/11/28"
 
 
 class ChemometricsOrthogonalPLS(BaseEstimator, RegressorMixin, TransformerMixin):
@@ -670,7 +674,7 @@ class ChemometricsOrthogonalPLS(BaseEstimator, RegressorMixin, TransformerMixin)
         return None
 
     ####### flsoares232 version - Updated 20-10-2023
-    def plot_model_parameters(self, parameter='w_pred', orthogonal_component=1, cross_val=False, sigma=2, bar=False, xaxis=None, yaxis=None, instrument=None, marker_size=3):
+    def plot_model_parameters(self, parameter='w_pred', orthogonal_component=1, cross_val=False, sigma=2, bar=False, xaxis=None, yaxis=None, instrument=None, marker_size=3, alpha=0.5):
         
         """
         Plot different model parameters related with the variables
@@ -725,7 +729,7 @@ class ChemometricsOrthogonalPLS(BaseEstimator, RegressorMixin, TransformerMixin)
                 plt.xlabel("Variable No")    
         elif instrument == 'lcms':
             if xaxis is not None and yaxis is not None:
-                _scatterplots(mean, xaxis=xaxis, yaxis=yaxis, marker_size=marker_size)
+                _scatterplots(mean, xaxis=xaxis, yaxis=yaxis, marker_size=marker_size, alpha=alpha)
         else:
             if bar is False:
                 _lineplots(mean, error=error, xaxis=xaxis)
