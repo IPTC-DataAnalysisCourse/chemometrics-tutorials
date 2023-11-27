@@ -10,7 +10,7 @@ To run these tutorials download the contents of this repository and run the Jupy
 All the data required to run these notebooks is provided on the 'data' folder. The dataset used in this tutorial comes from the following publication:
 - Lovestone, S., Francis, P., Kloszewska, I., Mecocci, P., Simmons, A., Soininen, H., Spenger, C., Tsolaki, M., Vellas, B., Wahlund, L.-O., Ward, M. and (2009), AddNeuroMed—The European Collaboration for the Discovery of Novel Biomarkers for Alzheimer's Disease. Annals of the New York Academy of Sciences, 1180: 36-46. [https://doi.org/10.1111/j.1749-6632.2009.05064.x](https://doi.org/10.1111/j.1749-6632.2009.05064.x).
 
-It is a set of urine samples 577 individuals processes by using Liquid Chromatography - Mass Spectrometery instrument.  
+It is a set of urine samples of 577 individuals processes by using Liquid Chromatography - Mass Spectrometery instrument.  
 There are two main biological sources of variation in the dataset:
 - Gender/Sex (0: Biological female (n=294)) , 1: Biological male (n=283))
 - Age 
