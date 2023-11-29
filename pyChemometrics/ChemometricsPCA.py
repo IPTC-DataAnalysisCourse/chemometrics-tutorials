@@ -549,11 +549,11 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
                     cmap = cm.jet
                     cnorm = Normalize(vmin=min(color), vmax=max(color))
 
-                    ax.scatter(x_coord, y_coord, c=color, cmap=cmap, norm=cnorm)
+                    im = ax.scatter(x_coord, y_coord, c=color, cmap=cmap, norm=cnorm)
                     #ax.scatter(x_coord[outlier_idx], y_coord[outlier_idx],
                     #            c=color[outlier_idx], cmap=cmap, norm=cnorm, marker='x',
                     #            s=1.5 * mpl.rcParams['lines.markersize'] ** 2)
-                    ax.colorbar()
+                    fig.colorbar(im, ax=ax)
                 else:
                     cmap = cm.Set1
                     subtypes = np.unique(color)
@@ -679,8 +679,8 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
         fig, ax = plt.subplots()
         ax = sns.violinplot(data=q2x.T, palette="Set1")
         ax = sns.swarmplot(data=q2x.T, edgecolor="black", color='black')
-        ax.xaxis.set_ticks(range(1, total_comps + 1))
-        # ax.set_xticklabels(range(1, total_comps + 1)) #WARNING HERE
+        ax.set_xticks(range(0, total_comps))
+        ax.set_xticklabels(range(1, total_comps + 1))
         ax.set_xlabel("Number of components")
         ax.set_ylabel("Q2X")
         plt.show()
@@ -911,7 +911,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
         except ValueError as verr:
             raise verr
             
-    def plot_outliers(self, x, outlier_idx, sigma=1.25, instrument='nmr', xaxis=None, yaxis=None):
+    def plot_outliers(self, x, outlier_idx, sigma=50000, instrument='nmr', xaxis=None, yaxis=None, logscaled = True):
         """
         Leverage (h) per observation, with a red line plotted at y = 1/Number of samples (expected
         :return: Plot with observation leverages (h)
@@ -925,7 +925,12 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
         # Reconstruct a spectrum for the "mean" of these outliers
         mean_outlier = self.inverse_transform(out_scores.mean(axis=0))
         
-        fig = plt.figure()  # an empty figure with no Axes
+        if logscaled is False:
+            if sigma > 3:
+                sigma = 1.25
+                
+        
+        # fig = plt.figure()  # an empty figure with no Axes
         fig, ax = plt.subplots()  # a figure with a single Axes
         
         if instrument == 'nmr':
@@ -967,10 +972,10 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
                 group[mean_outlier>IC_max] = 1
                 
                 # Create a scatter plot with a colormap based on the third vector
-                plt.scatter(x=xaxis[group == 0], y=yaxis[group == 0], color='gray', s=10)
+                plt.scatter(x=xaxis[group == 0], y=yaxis[group == 0], color='gray', s=10, alpha=.5)
                 
                 # Create a scatter plot with a colormap based on the third vector
-                scatter = sns.scatterplot(x=xaxis[group == 1], y=yaxis[group == 1], hue=model_center_sample[group == 1], palette=new_cmap)
+                scatter = sns.scatterplot(x=xaxis[group == 1], y=yaxis[group == 1], hue=model_center_sample[group == 1], palette=new_cmap, s = 7.5)
                 
                 # Customize the color bar
                 norm = Normalize(vmin=mincol, vmax=maxcol)
