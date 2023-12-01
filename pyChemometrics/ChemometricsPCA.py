@@ -2,6 +2,7 @@ from copy import deepcopy
 import numpy as np
 from sklearn.base import BaseEstimator, TransformerMixin, clone
 from sklearn.decomposition import PCA as skPCA
+from sklearn.decomposition._base import _BasePCA
 from sklearn.model_selection import BaseCrossValidator, KFold
 from sklearn.model_selection._split import BaseShuffleSplit
 from .ChemometricsScaler import ChemometricsScaler
@@ -11,12 +12,14 @@ from matplotlib.colors import Normalize
 import matplotlib as mpl
 import scipy.stats as st
 import matplotlib.cm as cm
+from pyChemometrics.plotting_utils import _scatterplots, _lineplots, _shiftedColorMap
 
 __author__ = 'gscorreia89'
+# updated by flsoares232 on 17-10-2023
 
-from copy import deepcopy
 
-class ChemometricsPCA(BaseEstimator):
+
+class ChemometricsPCA(_BasePCA, BaseEstimator):
     """
 
     ChemometricsPCA object - Wrapper for sklearn.decomposition PCA algorithms, with tailored methods
@@ -38,7 +41,7 @@ class ChemometricsPCA(BaseEstimator):
         try:
             # Perform the check with is instance but avoid abstract base class runs. PCA needs number of comps anyway!
             init_pca_algorithm = pca_algorithm(n_components=ncomps, **pca_type_kwargs)
-            if not isinstance(init_pca_algorithm, (BaseEstimator, TransformerMixin)):
+            if not isinstance(init_pca_algorithm, (_BasePCA, BaseEstimator, TransformerMixin)):
                 raise TypeError("Use a valid scikit-learn PCA model please")
             if not (isinstance(scaler, TransformerMixin) or scaler is None):
                 raise TypeError("Scikit-learn Transformer-like object or None")
@@ -355,7 +358,7 @@ class ChemometricsPCA(BaseEstimator):
         """
         return np.diag(np.dot(self.scores, np.dot(np.linalg.inv(np.dot(self.scores.T, self.scores)), self.scores.T)))
 
-    def cross_validation(self, x, cv_method=KFold(7, shuffle=True), outputdist=False):
+    def cross_validation(self, x, cv_method=KFold(n_splits=7,shuffle=True), outputdist=False):
         """
 
         Cross-validation method for the model. Calculates cross-validated estimates for Q2X and other
@@ -387,8 +390,10 @@ class ChemometricsPCA(BaseEstimator):
 
             # Initialise predictive residual sum of squares variable (for whole CV routine)
             total_press = 0
+            press = np.empty((0,np.shape(x)[1]), int)
             # Calculate Sum of Squares SS in whole dataset
-            ss = np.sum((cv_pipeline.scaler.transform(x)) ** 2)
+            ssv = np.sum((cv_pipeline.scaler.transform(x)) ** 2, axis=0)
+            ss = np.sum(ssv)
             # Initialise list for loadings and for the VarianceExplained in the test set values
             # Check if model has loadings, as in case of kernelPCA these are not available
             if hasattr(self.pca_algorithm, 'components_'):
@@ -420,9 +425,17 @@ class ChemometricsPCA(BaseEstimator):
                 # RSS for row wise cross-validation
                 pred_scores = cv_pipeline.transform(x[xtest, :])
                 pred_x = cv_pipeline.scaler.transform(cv_pipeline.inverse_transform(pred_scores))
+                # To perform the Q2v
+                rs = np.square(xtest_scaled - pred_x)
+                rss = np.sum(rs)
+                # press = np.append(press,rs,axis=1)
+                press = np.append(press,rs,axis=0) 
+
                 rss = np.sum(np.square(xtest_scaled - pred_x))
                 total_press += rss
                 cv_varexplained_test.append(1 - (rss / tss))
+            
+            
 
             # Create matrices for each component loading containing the cv values in each round
             # nrows = nrounds, ncolumns = n_variables
@@ -446,13 +459,17 @@ class ChemometricsPCA(BaseEstimator):
             # Calculate total sum of squares
             # Q^2X
             q_squared = 1 - (total_press / ss)
+            # Q^2X for each variable
+            pressv = np.sum(press,axis=0)
+            q_squared_variable = 1 - (pressv / ssv)
             # Assemble the dictionary and data matrices
 
             self.cvParameters = {'Mean_VarExpRatio_Training': np.array(cv_varexplained_training).mean(axis=0),
                                  'Stdev_VarExpRatio_Training': np.array(cv_varexplained_training).std(axis=0),
                                  'Mean_VarExp_Test': np.mean(cv_varexplained_test),
                                  'Stdev_VarExp_Test': np.std(cv_varexplained_test),
-                                 'Q2': q_squared}
+                                 'Q2': q_squared,
+                                 'Q2v': q_squared_variable}
 
             if outputdist is True:
                 self.cvParameters['CV_VarExpRatio_Training'] = cv_varexplained_training
@@ -543,7 +560,7 @@ class ChemometricsPCA(BaseEstimator):
                     for subtype in subtypes:
                         subset_index = np.where(color == subtype)
                         ax.scatter(x_coord[subset_index], y_coord[subset_index],
-                                    c=cmap(subtype), label=subtype)
+                                    color=cmap(subtype), label=subtype)
                     ax.legend()
                     #ax.scatter(x_coord[outlier_idx], y_coord[outlier_idx],
                     #            c=color[outlier_idx], cmap=cmap, marker='x',
@@ -556,9 +573,9 @@ class ChemometricsPCA(BaseEstimator):
                 angle = np.arange(-np.pi, np.pi, 0.01)
                 x = t2[0] * np.cos(angle)
                 y = t2[1] * np.sin(angle)
-                ax.axhline(c='k')
-                ax.axvline(c='k')
-                ax.plot(x, y, c='k')
+                ax.axhline(c='k',linestyle = '--')
+                ax.axvline(c='k',linestyle = '--')
+                ax.plot(x, y, c='grey', linestyle ='--')
 
                 xmin = np.minimum(min(x_coord), np.min(x))
                 xmax = np.maximum(max(x_coord), np.max(x))
@@ -569,8 +586,8 @@ class ChemometricsPCA(BaseEstimator):
                 ax.set_xlim([(xmin + (0.2 * xmin)), xmax + (0.2 * xmax)])
                 ax.set_ylim([(ymin + (0.2 * ymin)), ymax + (0.2 * ymax)])
             else:
-                ax.axhline(y=t2, c='k', ls='--')
-                ax.axhline(y=-t2, c='k', ls='--')
+                ax.axhline(y=t2, c ='k', linestyle='--')
+                ax.axhline(y=-t2, c ='k', linestyle='--')
                 ax.legend(['Hotelling $T^{2}$ 95% limit'])
 
         except (ValueError, IndexError) as verr:
@@ -591,7 +608,7 @@ class ChemometricsPCA(BaseEstimator):
         plt.show()
         return ax
 
-    def scree_plot(self, x, total_comps=5, cv_method=KFold(7, shuffle=True)):
+    def scree_plot(self, x, total_comps=5, cv_method=KFold(n_splits=7,shuffle=True)):
         """
 
         Plot of the R2X and Q2X per number of component to aid in the selection of the component number.
@@ -634,9 +651,9 @@ class ChemometricsPCA(BaseEstimator):
                       "at component {0}".format(plateau + 1))
         plt.show()
 
-        return ax
+        return
 
-    def repeated_cv(self, x, total_comps=7, repeats=15, cv_method=KFold(7, shuffle=True)):
+    def repeated_cv(self, x, total_comps=7, repeats=15, cv_method=KFold(n_splits=7,shuffle=True)):
         """
 
         Perform repeated cross-validation and plot Q2X values and their distribution (violin plot) per component
@@ -662,14 +679,53 @@ class ChemometricsPCA(BaseEstimator):
         fig, ax = plt.subplots()
         ax = sns.violinplot(data=q2x.T, palette="Set1")
         ax = sns.swarmplot(data=q2x.T, edgecolor="black", color='black')
+        ax.set_xticks(range(0, total_comps))
         ax.set_xticklabels(range(1, total_comps + 1))
         ax.set_xlabel("Number of components")
         ax.set_ylabel("Q2X")
         plt.show()
 
         return q2x, ax
+    
+    ## Added by flsoares232 on 18-10-2023
+    def variable_selection(self, x, threshold=0.5, exclude=True):
+        """
+        Perform a variable selection based on the Q2 for each variable
 
-    def plot_loadings(self, component=1, bar=False, sigma=2, x=None):
+        :param x: Data matrix [n samples, m variables]
+        :threshold: Target value of Q2 to select the variables, anything below this mark would be excluded
+        :exclude: Apply or not the mask
+        """
+        xaxis = np.arange(np.shape(x)[1])
+        q_squared_variable = self.cvParameters['Q2v']
+        Xnormalized = (np.median(x.T, axis=1) - np.min(np.median(x.T, axis=1))) / (np.max(np.median(x.T, axis=1)) - np.min(np.median(x.T, axis=1))) #just for the plot
+        
+        plt.scatter(xaxis[q_squared_variable >= threshold],
+                Xnormalized[q_squared_variable >= threshold],
+                color ='red')
+        # plt.scatter(xaxis[q_squared_variable < threshold],
+        #         Xnormalized[q_squared_variable < threshold],
+        #         color ='red')
+        
+        plt.plot(xaxis, Xnormalized, color='k', alpha=0.75)
+        plt.title("Predicted variance by each variable")
+        ax = plt.gca()
+        ax.set_xlim([0, np.shape(x)[1]])
+        # ax.set_ylim([-1.05, 1.05])
+        ax.set_xlabel("Variable No")
+        ax.set_ylabel("Q2v")
+        plt.show()
+
+        if exclude == True:
+            # x_sel = np.delete(x, variable_selected, axis=1)
+            variable_selected = xaxis[q_squared_variable >= threshold]
+        else:
+                variable_selected = xaxis
+
+        return variable_selected
+    ## End of addition
+
+    def plot_loadings(self, ncomp=1, bar=False, sigma=2, xaxis=None, yaxis=None, instrument='nmr'):
         """
         Loading plot figure for the selected component. With uncertainty estimation if the cross validation method
         has been called before.
@@ -680,42 +736,52 @@ class ChemometricsPCA(BaseEstimator):
         :return: Loading plot figure
         """
         # Adjust the indexing so user can refer to component 1 as component 1 instead of 0
-        component -= 1
-        fig, ax = plt.subplots()
+        ncomp -= 1
 
-        if x is None:
-            x_to_fill = range(self.loadings[component, :].size)
-        else:
-            x_to_fill = x
+        if xaxis is None and instrument == 'nmr':
+            x_to_fill = range(self.loadings[ncomp, :].size)
 
         # For "spectrum/continuous like plotting"
         if bar is False:
-            if x is None:
-                ax.plot(self.loadings[component, :])
-            else:
-                ax.plot(x, self.loadings[component, :])
+            if instrument == 'nmr':
+                if xaxis is None:
+                    _lineplots(self.loadings[ncomp, :])
+                else:
+                    _lineplots(self.loadings[ncomp, :],xaxis = xaxis)
+    
+                if self.cvParameters is not None:
+                    error = sigma * self.cvParameters['Stdev_Loadings'][ncomp]
+                    if xaxis is None:
+                        _lineplots(self.loadings[ncomp, :], error=error, xaxis=x_to_fill)
+                    else:
+                        _lineplots(self.loadings[ncomp, :], error=error, xaxis=xaxis)
+                
+                plt.xlabel("ppm")
+                plt.gca().invert_xaxis()    
+                plt.ylabel("Loading for PC{0}".format((ncomp + 1)))                                                                  
+            elif instrument == 'lcms':
+                if xaxis is None and yaxis is None:
+                    raise
+                elif xaxis is None:
+                    raise
+                elif yaxis is None:
+                    raise
+                else:
+                    _scatterplots(self.loadings[ncomp, :], xaxis=xaxis, yaxis=yaxis,cbarlabel="Loading for PC{0}".format((ncomp + 1)))
 
-            if self.cvParameters is not None:
-                ax.fill_between(x_to_fill,
-                self.cvParameters['Mean_Loadings'][component] - sigma*self.cvParameters['Stdev_Loadings'][component],
-                self.cvParameters['Mean_Loadings'][component] + sigma*self.cvParameters['Stdev_Loadings'][component],
-                alpha=0.2, color='red')
+        # # To use with barplots for other types of data
+        # else:
+        #     if self.cvParameters is not None:
+        #         ax.errorbar(x_to_fill,
+        #                      height=self.cvParameters['Mean_Loadings'][:, ncomp],
+        #                      yerr=2 * self.cvParameters['Stdev_Loadings'][:, ncomp],
+        #                      width=0.2)
+        #     else:
+        #         ax.bar(x_to_fill, height=self.loadings[ncomp, :], width=0.2)
 
-        # To use with barplots for other types of data
-        else:
-            if self.cvParameters is not None:
-                ax.errorbar(x_to_fill,
-                             height=self.cvParameters['Mean_Loadings'][:, component],
-                             yerr=2 * self.cvParameters['Stdev_Loadings'][:, component],
-                             width=0.2)
-            else:
-                ax.bar(x_to_fill, height=self.loadings[component, :], width=0.2)
+        # plt.show()
 
-        ax.set_xlabel("Variable No")
-        ax.set_ylabel("Loading for PC{0}".format((component + 1)))
-        plt.show()
-
-        return ax
+        return
 
     def plot_dmodx(self, x, label_outliers=False, alpha=0.05):
         """
@@ -753,6 +819,174 @@ class ChemometricsPCA(BaseEstimator):
             raise terr
         except ValueError as verr:
             raise verr
+
+    ## Added by flsoares232 on 19-10-2023
+    def plot_hotellingT2(self, x, label_outliers=False, alpha=0.05):
+        """
+
+        Plot a figure with Hotelling T² values and the F-statistic critical line.
+
+        :param numpy.ndarray x: Data matrix [n samples, m variables]
+        :param float alpha: Significance level
+        :return: Plot with Hotelling T² values and critical line
+        """
+
+        try:
+            T2 = self.hotelling_T2(comps=None, alpha=alpha)
+            hotteling_T2 = ((self.scores[:, :self.ncomps] ** 2) / T2 ** 2).sum(axis=1)
+            # Degrees of freedom for the PCA model (denominator in F-stat) calculated as suggested in
+            # Faber, Nicolaas (Klaas) M., Degrees of freedom for the residuals of a
+            # principal component analysis - A clarification, Chemometrics and Intelligent Laboratory Systems 2008
+            T2crit = st.f.ppf(1-alpha, self.ncomps*(x.shape[0]-1), (x.shape[0]-self.ncomps))
+            outlier_idx = np.where(hotteling_T2 > T2crit)[0]            
+            fig, ax = plt.subplots()
+            x_axis = np.array([x for x in range(x.shape[0])])
+            ax.plot(x_axis, hotteling_T2, 'o')
+            ax.plot(x_axis[outlier_idx], hotteling_T2[outlier_idx], 'rx')
+
+            if label_outliers:
+                for outlier in outlier_idx:
+                    ax.annotate(outlier, (
+                    x_axis[outlier] + x_axis[outlier] * 0.05, hotteling_T2[outlier] + hotteling_T2[outlier] * 0.05))
+
+            ax.set_xlabel('Sample Index')
+            ax.set_ylabel('Hotteling T2')
+            ax.hlines(T2crit, xmin=0, xmax= x.shape[0], color='r', linestyles='--')
+            plt.show()
+
+            return ax
+        except TypeError as terr:
+            raise terr
+        except ValueError as verr:
+            raise verr
+    ## End of addition
+    
+    ## Added by flsoares232 on 19-10-2023
+    def plot_T2vsdmodx(self, x, label_outliers=False, alpha=0.05):
+        """
+
+        Plot a figure of Hotelling T² against DModX values and the F-statistic critical line.
+
+        :param numpy.ndarray x: Data matrix [n samples, m variables]
+        :param float alpha: Significance level
+        :return: Plot Hotelling T² against DModX values and critical groups
+        """
+
+        # Degrees of freedom for the PCA model (denominator in F-stat) calculated as suggested in
+        # Faber, Nicolaas (Klaas) M., Degrees of freedom for the residuals of a
+        # principal component analysis - A clarification, Chemometrics and Intelligent Laboratory Systems 2008
+        try:
+            T2 = self.hotelling_T2(comps=None, alpha=alpha)
+            hotteling_T2 = ((self.scores[:, :self.ncomps] ** 2) / T2 ** 2).sum(axis=1)
+            T2crit = st.f.ppf(1-alpha, self.ncomps*(x.shape[0]-1), (x.shape[0]-self.ncomps))
+            outlier_idx1 = np.where(hotteling_T2 > T2crit)[0]
+
+            dmodx = self.dmodx(x)
+            dcrit = st.f.ppf(1-alpha, x.shape[1] - self.ncomps - 1, (x.shape[0] - self.ncomps - 1)*(x.shape[1] - self.ncomps))
+            outlier_idx2 = self.outlier(x, measure='DmodX')
+
+            outlier_idx3 = np.intersect1d(outlier_idx1,outlier_idx2)
+            
+            fig, ax = plt.subplots()
+            ax.plot(hotteling_T2, dmodx, 'o')
+            ax.plot(hotteling_T2[outlier_idx1], dmodx[outlier_idx1], 'ro')
+            ax.plot(hotteling_T2[outlier_idx2], dmodx[outlier_idx2], 'go')
+            ax.plot(hotteling_T2[outlier_idx3], dmodx[outlier_idx3], 'mo')
+
+            outlier_idx = np.unique(np.concatenate((outlier_idx1,outlier_idx2),axis=0))
+            if label_outliers:
+                for outlier in outlier_idx:
+                    ax.annotate(outlier, (
+                    hotteling_T2[outlier] + hotteling_T2[outlier] * 0.05, dmodx[outlier] + dmodx[outlier] * 0.05))
+
+            ax.set_xlabel('Hotteling T2')
+            ax.set_ylabel('DModX')
+            ax.vlines(T2crit, ymin=0, ymax= dmodx.max()*1.2, color='grey', linestyles='--')
+            ax.hlines(dcrit, xmin=0, xmax = hotteling_T2.max()*1.2, color='grey', linestyles='--')
+            plt.show()
+
+            return ax
+        except TypeError as terr:
+            raise terr
+        except ValueError as verr:
+            raise verr
+            
+    def plot_outliers(self, x, outlier_idx, sigma=1.25, instrument='nmr', xaxis=None, yaxis=None):
+        """
+        Leverage (h) per observation, with a red line plotted at y = 1/Number of samples (expected
+        :return: Plot with observation leverages (h)
+        """
+        # Use the center of the model as control 
+        model_center_sample = np.mean(x,axis=0)
+        std_model_sample = np.std(x,axis=0)
+        # Reconstruct spectra from the 5 outliers in PC2
+        out_scores = self.scores[outlier_idx, :]
+        outliers = self.inverse_transform(out_scores)
+        # Reconstruct a spectrum for the "mean" of these outliers
+        mean_outlier = self.inverse_transform(out_scores.mean(axis=0))
+        
+        fig = plt.figure()  # an empty figure with no Axes
+        fig, ax = plt.subplots()  # a figure with a single Axes
+        
+        if instrument == 'nmr':
+            if xaxis is None:
+                xaxis = np.arange(model_center_sample.size)            
+            ax.plot(xaxis, model_center_sample, 'b')
+            # The outliers plotted in dashed red line
+            ax.plot(xaxis, outliers.T, 'r--',)
+            # The mean outlier plotted in green
+            ax.plot(xaxis, mean_outlier, 'g:')
+            
+            ax.set_xlabel("$\delta$ppm")
+            ax.invert_xaxis()
+            plt.show()
+        elif instrument == 'lcms':
+            if xaxis is None:
+                raise
+            elif yaxis is None:
+                raise
+            elif xaxis is None and yaxis is None:
+                raise
+            else:
+                ax.set_ylabel('Mass to charge ratio (m/z)')
+                ax.set_xlabel('Retention Time (min.)')
+                
+                colormap=plt.cm.coolwarm
+                
+                # Define colorbar and colormap limits
+                maxval = np.max([np.abs(np.max(mean_outlier)), np.abs(np.min(outliers))])
+                maxcol = maxval
+                mincol = -maxval
+                new_cmap = _shiftedColorMap(colormap, start=0, midpoint=1 - maxcol/(maxcol + np.abs(mincol)), stop=1, name='new')
+                
+                # Group significant values
+                IC_min = model_center_sample - sigma*std_model_sample
+                IC_max = model_center_sample + sigma*std_model_sample
+                group = np.zeros(np.shape(model_center_sample))
+                group[mean_outlier<IC_min] = 1
+                group[mean_outlier>IC_max] = 1
+                
+                # Create a scatter plot with a colormap based on the third vector
+                plt.scatter(x=xaxis[group == 0], y=yaxis[group == 0], color='gray', s=10)
+                
+                # Create a scatter plot with a colormap based on the third vector
+                scatter = sns.scatterplot(x=xaxis[group == 1], y=yaxis[group == 1], hue=model_center_sample[group == 1], palette=new_cmap)
+                
+                # Customize the color bar
+                norm = Normalize(vmin=mincol, vmax=maxcol)
+                sm = plt.cm.ScalarMappable(cmap=new_cmap, norm=norm)
+                sm.set_array([])
+                
+                # Add a colorbar using the scatter plot's axes
+                cbar = plt.colorbar(sm, ax=scatter.axes)
+                cbar.set_label("Magnitude")
+                # Remove the legend
+                scatter.get_legend().remove()
+                
+                plt.show()        
+        
+        
+    ## End of addition
 
     def plot_leverages(self):
         """
