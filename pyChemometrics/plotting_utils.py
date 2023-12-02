@@ -111,7 +111,7 @@ def interactive_manhattan(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None,
     
         xReverse = 'reversed'
         Xlabel = chr(948) + 'ppm 1H'
-        Ylabel = r"Sign($\beta$) $\times$ - $log_{10}$p-value"
+        Ylabel = chr(946) + 'x - log\u2081\u2080 p-value'
     
         # Add annotation
         layout = {
@@ -182,8 +182,8 @@ def interactive_manhattan(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None,
         data = [manhattan_scatter,manhattan_scatter_sel]
 
         # Create labels
-        Xlabel = 'Mass to charge ratio (m/z)'
-        Ylabel = r"Sign($\beta$) $\times$ - $log_{10}$p-value"
+        Xlabel = 'Retention Time (min)'
+        Ylabel = 'Mass to charge ratio (m/z)'
     
         # Add annotation
         layout = {
@@ -197,7 +197,9 @@ def interactive_manhattan(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None,
                 yanchor="top",
                 y=0.99,
                 xanchor="right",
-                x=0.99)}
+                x=0.99),
+             'coloraxis_colorbar': dict(title=chr(946) + 'x - log\u2081\u2080 p-value')
+        }
         fig = {
             'data': data,
             'layout': layout,
