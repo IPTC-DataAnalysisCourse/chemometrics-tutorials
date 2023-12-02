@@ -1371,8 +1371,6 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 q2x[n_components - 1, rep] = currmodel.cvParameters['Q2X']
                 auc[n_components - 1, rep] = currmodel.cvParameters['DA']['Mean_AUC']
                 acc[n_components - 1, rep] = currmodel.cvParameters['DA']['Mean_Accuracy']
-
-        plt.figure()
         
         if metric == 'Q2Y':
             d=q2y
