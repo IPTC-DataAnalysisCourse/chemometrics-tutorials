@@ -111,7 +111,7 @@ def interactive_manhattan(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None,
     
         xReverse = 'reversed'
         Xlabel = chr(948) + 'ppm 1H'
-        Ylabel = chr(946) + 'x - log\u2081\u2080 p-value'
+        Ylabel = 'Sign(' + chr(946) + ') x - log\u2081\u2080 p-value'
     
         # Add annotation
         layout = {
