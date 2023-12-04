@@ -991,7 +991,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
                 cbar = plt.colorbar(sm, ax=scatter.axes)
                 cbar.set_label("Magnitude")
                 # Remove the legend
-                scatter.get_legend().remove()
+                #scatter.get_legend().remove()
                 
                 plt.show()        
         
