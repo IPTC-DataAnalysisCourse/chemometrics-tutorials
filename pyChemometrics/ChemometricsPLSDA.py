@@ -1422,7 +1422,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             
             # Changed a little bit the graph to make it more obviously the correct value (flsoares232)
             if metric == 'Q2Y':
-                plt.stem(self.cvParameters['DA']['Q2Y'], 1, linefmt='red')
+                plt.stem(self.cvParameters['Q2Y'], 1, linefmt='red')
             elif metric == 'AUC':
                 plt.stem(self.cvParameters['DA']['Mean_AUC'], 1, linefmt='red')
                 plt.xlabel('AUC')
