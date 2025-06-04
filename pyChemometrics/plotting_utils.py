@@ -65,6 +65,10 @@ def manhattan_plot(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None, yaxis=
         norm = Normalize(vmin=mincol, vmax=maxcol)
         sm = plt.cm.ScalarMappable(cmap=new_cmap, norm=norm)
         sm.set_array([])
+        # Remove the legend
+        legend = ax.get_legend()
+        if legend is not None:
+            legend.remove()
         # Add a colorbar
         cbar = fig.colorbar(sm, ax=ax)
             
