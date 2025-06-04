@@ -67,7 +67,7 @@ def manhattan_plot(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None, yaxis=
         sm.set_array([])
         # Remove the legend and add a colorbar
         ax.get_legend().remove()
-        cbar = ax.figure.colorbar(sm)
+        cbar = fig.colorbar(sm, ax=ax)
             
         cbar.set_label(r"Sign($\beta$) $\times$ - $log_{10}$p-value")
 
