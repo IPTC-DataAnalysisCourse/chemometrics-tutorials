@@ -65,8 +65,7 @@ def manhattan_plot(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None, yaxis=
         norm = Normalize(vmin=mincol, vmax=maxcol)
         sm = plt.cm.ScalarMappable(cmap=new_cmap, norm=norm)
         sm.set_array([])
-        # Remove the legend and add a colorbar
-        ax.get_legend().remove()
+        # Add a colorbar
         cbar = fig.colorbar(sm, ax=ax)
             
         cbar.set_label(r"Sign($\beta$) $\times$ - $log_{10}$p-value")
