@@ -1414,22 +1414,15 @@ class ChemometricsOrthogonalPLSDA(ChemometricsOrthogonalPLS, ClassifierMixin):
                 
         #Create index variables
         cov_vec = cov[0,]
-        corr_vec = corr[0,]
         points=np.arange(np.shape(cov_vec)[0])
-        std_poscov=np.std(cov_vec);
-        std_negcov=-1*np.std(cov_vec);
-        std_poscorr=np.std(corr_vec);
-        std_negcorr=-1*np.std(corr_vec);
+        std_pos=np.std(cov_vec);
+        std_neg=-1*np.std(cov_vec);
         
         #Calculate 1 to 3 x SDs and store the indexes
         Ind = [] #initialize Ind
         for j in range(3):   
-            mask_cov = [cov_vec>((j+1)*std_poscov)]
-            mask_corr = [corr_vec>((j+1)*std_poscorr)]
-            ind_pos=points[np.logical_and(mask_cov[0], mask_corr[0])]
-            mask_cov = [cov_vec<((j+1)*std_negcov)]
-            mask_corr = [corr_vec<((j+1)*std_negcorr)]
-            ind_neg=points[np.logical_and(mask_cov[0], mask_corr[0])]
+            ind_pos=points[cov_vec>((j+1)*std_pos)]
+            ind_neg=points[cov_vec<((j+1)*std_neg)]
         
             Ind.append(np.concatenate((ind_pos, ind_neg), axis=0))
 

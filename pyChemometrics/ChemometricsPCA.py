@@ -14,8 +14,15 @@ import scipy.stats as st
 import matplotlib.cm as cm
 from pyChemometrics.plotting_utils import _scatterplots, _lineplots, _shiftedColorMap
 
+# originally dveloped by:
 __author__ = 'gscorreia89'
 # updated by flsoares232 on 17-10-2023
+
+
+# minor updates and maintenance:
+__authors__ = ["flsoares", "kopeckylukas"]
+__date__ = "2023/11/28"
+
 
 
 
@@ -549,11 +556,11 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
                     cmap = cm.jet
                     cnorm = Normalize(vmin=min(color), vmax=max(color))
 
-                    ax.scatter(x_coord, y_coord, c=color, cmap=cmap, norm=cnorm)
+                    im = ax.scatter(x_coord, y_coord, c=color, cmap=cmap, norm=cnorm)
                     #ax.scatter(x_coord[outlier_idx], y_coord[outlier_idx],
                     #            c=color[outlier_idx], cmap=cmap, norm=cnorm, marker='x',
                     #            s=1.5 * mpl.rcParams['lines.markersize'] ** 2)
-                    ax.colorbar()
+                    fig.colorbar(im, ax=ax)
                 else:
                     cmap = cm.Set1
                     subtypes = np.unique(color)
@@ -725,7 +732,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
         return variable_selected
     ## End of addition
 
-    def plot_loadings(self, ncomp=1, bar=False, sigma=2, xaxis=None, yaxis=None, instrument='nmr'):
+    def plot_loadings(self, ncomp=1, bar=False, sigma=2, xaxis=None, yaxis=None, instrument='nmr', marker_size=5, alpha=0.5):
         """
         Loading plot figure for the selected component. With uncertainty estimation if the cross validation method
         has been called before.
@@ -767,7 +774,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
                 elif yaxis is None:
                     raise
                 else:
-                    _scatterplots(self.loadings[ncomp, :], xaxis=xaxis, yaxis=yaxis,cbarlabel="Loading for PC{0}".format((ncomp + 1)))
+                    _scatterplots(self.loadings[ncomp, :], xaxis=xaxis, yaxis=yaxis,cbarlabel="Loading for PC{0}".format((ncomp + 1)), marker_size=marker_size,alpha=alpha)
 
         # # To use with barplots for other types of data
         # else:
@@ -911,7 +918,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
         except ValueError as verr:
             raise verr
             
-    def plot_outliers(self, x, outlier_idx, sigma=1.25, instrument='nmr', xaxis=None, yaxis=None):
+    def plot_outliers(self, x, outlier_idx, sigma=50000, instrument='nmr', xaxis=None, yaxis=None, logscaled = True):
         """
         Leverage (h) per observation, with a red line plotted at y = 1/Number of samples (expected
         :return: Plot with observation leverages (h)
@@ -925,7 +932,12 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
         # Reconstruct a spectrum for the "mean" of these outliers
         mean_outlier = self.inverse_transform(out_scores.mean(axis=0))
         
-        fig = plt.figure()  # an empty figure with no Axes
+        if logscaled is False:
+            if sigma > 3:
+                sigma = 1.25
+                
+        
+        # fig = plt.figure()  # an empty figure with no Axes
         fig, ax = plt.subplots()  # a figure with a single Axes
         
         if instrument == 'nmr':
@@ -967,10 +979,10 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
                 group[mean_outlier>IC_max] = 1
                 
                 # Create a scatter plot with a colormap based on the third vector
-                plt.scatter(x=xaxis[group == 0], y=yaxis[group == 0], color='gray', s=10)
+                plt.scatter(x=xaxis[group == 0], y=yaxis[group == 0], color='gray', s=10, alpha=.5)
                 
                 # Create a scatter plot with a colormap based on the third vector
-                scatter = sns.scatterplot(x=xaxis[group == 1], y=yaxis[group == 1], hue=model_center_sample[group == 1], palette=new_cmap)
+                scatter = sns.scatterplot(x=xaxis[group == 1], y=yaxis[group == 1], hue=model_center_sample[group == 1], palette=new_cmap, s = 7.5)
                 
                 # Customize the color bar
                 norm = Normalize(vmin=mincol, vmax=maxcol)
@@ -981,7 +993,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
                 cbar = plt.colorbar(sm, ax=scatter.axes)
                 cbar.set_label("Magnitude")
                 # Remove the legend
-                scatter.get_legend().remove()
+                #scatter.get_legend().remove()
                 
                 plt.show()        
         
@@ -1010,129 +1022,129 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
             setattr(result, k, deepcopy(v, memo))
         return result
 
-    def plotScoresInteractive(self, components=[1, 2], colour=None, label=None, discrete=True, alpha=0.05):
-        """
-        Interactively visualise PCA scores (coloured by a given sampleMetadata field, and for a given pair of components) with plotly, provides tooltips to allow identification of samples.
-
-        :param Dataset dataTrue: Dataset
-        :param PCA object pcaModel: PCA model object (scikit-learn based)
-        :param str colourBy: **sampleMetadata** field name to of which values to colour samples by
-        :param list components: List of two integers, components to plot
-        :param float alpha: Significance value for plotting Hotellings ellipse
-        :param bool withExclusions: If ``True``, only report on features and samples not masked by the sample and feature masks; must match between data and pcaModel
-        """
-
-        values = self.scores
-        ns, nc = values.shape
-        sampleMetadata = dataTrue.sampleMetadata.copy()
-
-        components = [component - 1 for i, component in
-                      enumerate(components)]  # Reduce components by one (account for python indexing)
-
-
-        classes = sampleMetadata[colourBy]
-
-        if label is None:
-            hovertext = sampleMetadata['Sample File Name'].str.cat(classes.astype(str),
-                                                                   sep='; ' + colourBy + ': ')  # Save text to show in tooltips
-        else:
-            hovertext = label
-
-        data = []
-
-        # Ensure all values in column have the same type
-        if discrete:
-            # list of all types in column; and set of unique types
-            mylist = list(type(classes[i]) for i in range(ns))
-            myset = set(mylist)
-
-        # else if mixed type convert to string
-        if len(myset) > 1:
-            classes = classes.astype(str)
-
-        # Plot NaN values in gray
-        plotnans = classes.isnull().values
-        if sum(plotnans != 0):
-            NaNplot = go.Scattergl(
-                x=values[plotnans == True, components[0]],
-                y=values[plotnans == True, components[1]],
-                mode='markers',
-                marker=dict(
-                    color='rgb(180, 180, 180)',
-                    symbol='circle',
-                ),
-                text=hovertext[plotnans == True],
-                hoverinfo='text',
-                showlegend=False
-            )
-            data.append(NaNplot)
-
-        # Plot numeric values with a colorbar
-        if discrete is False:
-            CLASSplot = go.Scattergl(
-                x=values[plotnans == False, components[0]],
-                y=values[plotnans == False, components[1]],
-                mode='markers',
-                marker=dict(
-                    colorscale='Portland',
-                    color=classes[plotnans == False],
-                    symbol='circle',
-                    showscale=True
-                ),
-                text=hovertext[plotnans == False],
-                hoverinfo='text',
-                showlegend=False
-            )
-
-        # Plot categorical values by unique groups
-        else:
-            uniq, indices = numpy.unique(classes, return_inverse=True)
-            CLASSplot = go.Scattergl(
-                x=values[plotnans == False, components[0]],
-                y=values[plotnans == False, components[1]],
-                mode='markers',
-                marker=dict(
-                    colorscale='Portland',
-                    color=indices[plotnans == False],
-                    symbol='circle',
-                ),
-                text=hovertext[plotnans == False],
-                hoverinfo='text',
-                showlegend=False
-            )
-
-        data.append(CLASSplot)
-
-        hotelling_ellipse = self.hotelling_T2(comps=numpy.array([components[0], components[1]]), alpha=alpha)
-
-        layout = {
-            'shapes': [
-                {
-                    'type': 'circle',
-                    'xref': 'x',
-                    'yref': 'y',
-                    'x0': 0 - hotelling_ellipse[0],
-                    'y0': 0 - hotelling_ellipse[1],
-                    'x1': 0 + hotelling_ellipse[0],
-                    'y1': 0 + hotelling_ellipse[1],
-                }
-            ],
-            'xaxis': dict(
-                title='PC' + str(components[0] + 1) + ' (' + '{0:.2f}'.format(
-                    self.modelParameters['VarExpRatio'][components[0]] * 100) + '%)'
-            ),
-            'yaxis': dict(
-                title='PC' + str(components[1] + 1) + ' (' + '{0:.2f}'.format(
-                    self.modelParameters['VarExpRatio'][components[1]] * 100) + '%)'
-            ),
-            'title': 'Coloured by ' + colour,
-            'legend': dict(
-                yanchor='middle',
-                xanchor='right'
-            ),
-            'hovermode': 'closest'
-        }
-
-        figure = go.Figure(data=data, layout=layout)
-
-        return figure
+    # def plotScoresInteractive(self, components=[1, 2], colour=None, label=None, discrete=True, alpha=0.05):
+    #     """
+    #     Interactively visualise PCA scores (coloured by a given sampleMetadata field, and for a given pair of components) with plotly, provides tooltips to allow identification of samples.
+    #
+    #     :param Dataset dataTrue: Dataset
+    #     :param PCA object pcaModel: PCA model object (scikit-learn based)
+    #     :param str colourBy: **sampleMetadata** field name to of which values to colour samples by
+    #     :param list components: List of two integers, components to plot
+    #     :param float alpha: Significance value for plotting Hotellings ellipse
+    #     :param bool withExclusions: If ``True``, only report on features and samples not masked by the sample and feature masks; must match between data and pcaModel
+    #     """
+    #
+    #     values = self.scores
+    #     ns, nc = values.shape
+    #     sampleMetadata = dataTrue.sampleMetadata.copy()
+    #
+    #     components = [component - 1 for i, component in
+    #                   enumerate(components)]  # Reduce components by one (account for python indexing)
+    #
+    #
+    #     classes = sampleMetadata[colourBy]
+    #
+    #     if label is None:
+    #         hovertext = sampleMetadata['Sample File Name'].str.cat(classes.astype(str),
+    #                                                                sep='; ' + colourBy + ': ')  # Save text to show in tooltips
+    #     else:
+    #         hovertext = label
+    #
+    #     data = []
+    #
+    #     # Ensure all values in column have the same type
+    #     if discrete:
+    #         # list of all types in column; and set of unique types
+    #         mylist = list(type(classes[i]) for i in range(ns))
+    #         myset = set(mylist)
+    #
+    #     # else if mixed type convert to string
+    #     if len(myset) > 1:
+    #         classes = classes.astype(str)
+    #
+    #     # Plot NaN values in gray
+    #     plotnans = classes.isnull().values
+    #     if sum(plotnans != 0):
+    #         NaNplot = go.Scattergl(
+    #             x=values[plotnans == True, components[0]],
+    #             y=values[plotnans == True, components[1]],
+    #             mode='markers',
+    #             marker=dict(
+    #                 color='rgb(180, 180, 180)',
+    #                 symbol='circle',
+    #             ),
+    #             text=hovertext[plotnans == True],
+    #             hoverinfo='text',
+    #             showlegend=False
+    #         )
+    #         data.append(NaNplot)
+    #
+    #     # Plot numeric values with a colorbar
+    #     if discrete is False:
+    #         CLASSplot = go.Scattergl(
+    #             x=values[plotnans == False, components[0]],
+    #             y=values[plotnans == False, components[1]],
+    #             mode='markers',
+    #             marker=dict(
+    #                 colorscale='Portland',
+    #                 color=classes[plotnans == False],
+    #                 symbol='circle',
+    #                 showscale=True
+    #             ),
+    #             text=hovertext[plotnans == False],
+    #             hoverinfo='text',
+    #             showlegend=False
+    #         )
+    #
+    #     # Plot categorical values by unique groups
+    #     else:
+    #         uniq, indices = numpy.unique(classes, return_inverse=True)
+    #         CLASSplot = go.Scattergl(
+    #             x=values[plotnans == False, components[0]],
+    #             y=values[plotnans == False, components[1]],
+    #             mode='markers',
+    #             marker=dict(
+    #                 colorscale='Portland',
+    #                 color=indices[plotnans == False],
+    #                 symbol='circle',
+    #             ),
+    #             text=hovertext[plotnans == False],
+    #             hoverinfo='text',
+    #             showlegend=False
+    #         )
+    #
+    #     data.append(CLASSplot)
+    #
+    #     hotelling_ellipse = self.hotelling_T2(comps=numpy.array([components[0], components[1]]), alpha=alpha)
+    #
+    #     layout = {
+    #         'shapes': [
+    #             {
+    #                 'type': 'circle',
+    #                 'xref': 'x',
+    #                 'yref': 'y',
+    #                 'x0': 0 - hotelling_ellipse[0],
+    #                 'y0': 0 - hotelling_ellipse[1],
+    #                 'x1': 0 + hotelling_ellipse[0],
+    #                 'y1': 0 + hotelling_ellipse[1],
+    #             }
+    #         ],
+    #         'xaxis': dict(
+    #             title='PC' + str(components[0] + 1) + ' (' + '{0:.2f}'.format(
+    #                 self.modelParameters['VarExpRatio'][components[0]] * 100) + '%)'
+    #         ),
+    #         'yaxis': dict(
+    #             title='PC' + str(components[1] + 1) + ' (' + '{0:.2f}'.format(
+    #                 self.modelParameters['VarExpRatio'][components[1]] * 100) + '%)'
+    #         ),
+    #         'title': 'Coloured by ' + colour,
+    #         'legend': dict(
+    #             yanchor='middle',
+    #             xanchor='right'
+    #         ),
+    #         'hovermode': 'closest'
+    #     }
+    #
+    #     figure = go.Figure(data=data, layout=layout)
+    #
+    #     return figure

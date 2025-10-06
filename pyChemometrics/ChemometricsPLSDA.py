@@ -1371,29 +1371,26 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
                 q2x[n_components - 1, rep] = currmodel.cvParameters['Q2X']
                 auc[n_components - 1, rep] = currmodel.cvParameters['DA']['Mean_AUC']
                 acc[n_components - 1, rep] = currmodel.cvParameters['DA']['Mean_Accuracy']
+
+        plt.figure()
         
         if metric == 'Q2Y':
-            d=q2y
+            data=q2y.T
         elif metric == 'AUC':
-            d=auc
+            data=auc.T
         elif metric == 'Q2X':
-            d=q2x
+            data=q2x.T
         elif metric == 'Accuracy':
-            d=acc
-                         
-        try:
-            df = pds.DataFrame(data=d, index=np.arange(1,total_comps+1), columns=np.arange(1,repeats+1))
-        except:
-            df = pds.DataFrame(data=d.T, index=np.arange(1,total_comps+1), columns=np.arange(1,repeats+1))
-
-        fig, ax = plt.subplots()
-        sns.violinplot(data=df.T, palette="Set1", ax=ax)
-        sns.swarmplot(data=df.T, edgecolor="black", color='black', ax=ax)
-        ax.set_xlabel("Number of components")
+            data=acc.T
+                
+        ax = sns.violinplot(data, palette="Set1")
+        ax = sns.swarmplot(data, edgecolor="black", color='black')
+        ax.xaxis.set_ticks(range(1, total_comps + 1))
+        plt.xlabel("Number of components")
         plt.ylabel(metric)
         plt.show()
 
-        # return q2y, q2x, auc, acc
+        return q2y, q2x, auc, acc
 
     def plot_cv_ROC(self):
         """
@@ -1425,7 +1422,7 @@ class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
             
             # Changed a little bit the graph to make it more obviously the correct value (flsoares232)
             if metric == 'Q2Y':
-                plt.stem(self.cvParameters['DA']['Q2Y'], 1, linefmt='red')
+                plt.stem(self.cvParameters['Q2Y'], 1, linefmt='red')
             elif metric == 'AUC':
                 plt.stem(self.cvParameters['DA']['Mean_AUC'], 1, linefmt='red')
                 plt.xlabel('AUC')
