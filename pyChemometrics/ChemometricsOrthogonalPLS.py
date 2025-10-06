@@ -16,6 +16,7 @@ from .plotting_utils import _lineplots, _barplots
 
 # originally dveloped by:
 __author__ = 'gscorreia89'
+# updated by flsoares on 17-10-2023
 
 # minor updates and maintenance:
 __authors__ = ["flsoares", "kopeckylukas"]

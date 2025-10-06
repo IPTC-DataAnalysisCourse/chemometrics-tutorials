@@ -287,7 +287,7 @@ def _scatterplots(mean, xaxis=None, yaxis=None, colormap=plt.cm.RdYlBu_r, xlabel
     return None
 
 
-def plotLoadings(pcaLoadings, ppm, spectra, title='', figures=None, savePath=None, figureFormat='png', dpi=72, figureSize=(11, 7)):
+def plotLoadings(pcaLoadings, ppm, spectra, title='', figures=None, savePath=None, figureFormat='png', dpi=72, figureSize=(11, 7), cbarlabels ='Loadings'):
     """
     Plot PCA loadings for each component in PCAmodel. For NMR data plots the median spectrum coloured by the loading. For MS data plots an ion map (rt vs. mz) coloured by the loading.
     :param pcaLoadings: Loading vector
@@ -325,7 +325,7 @@ def plotLoadings(pcaLoadings, ppm, spectra, title='', figures=None, savePath=Non
     plt.gca().invert_xaxis()
 
     cbar = plt.colorbar(cb)
-    cbar.set_label('Loadings')
+    cbar.set_label(cbarlabels)
     ax.set_xlabel(Xlabel)
     ax.set_ylabel(Ylabel)
 

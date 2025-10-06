@@ -16,6 +16,8 @@ from pyChemometrics.plotting_utils import _scatterplots, _lineplots, _shiftedCol
 
 # originally dveloped by:
 __author__ = 'gscorreia89'
+# updated by flsoares232 on 17-10-2023
+
 
 # minor updates and maintenance:
 __authors__ = ["flsoares", "kopeckylukas"]

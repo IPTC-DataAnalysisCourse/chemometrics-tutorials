@@ -1,5 +1,6 @@
 from copy import deepcopy
 import numpy as np
+import pandas as pds
 import matplotlib.pyplot as plt
 from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin, clone
 from sklearn.cross_decomposition._pls import PLSRegression, _PLS
@@ -1248,7 +1249,8 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
         :return: Violin plot with Q2Y values and distribution per component number.
         """
 
-        q2y = np.zeros((total_comps, repeats))
+        # q2y = np.zeros((total_comps, repeats))
+        q2y = np.zeros((repeats, total_comps))
 
         for n_components in range(1, total_comps + 1):
             for rep in range(repeats):
@@ -1256,17 +1258,24 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 currmodel.n_components = n_components
                 currmodel.fit(x, y)
                 currmodel.cross_validation(x, y, cv_method=cv_method, outputdist=False)
-                q2y[n_components - 1, rep] = currmodel.cvParameters['Q2Y']
-
+                # q2y[n_components - 1, rep] = currmodel.cvParameters['Q2Y']
+                q2y[rep, n_components - 1] = currmodel.cvParameters['Q2Y']
+                
+                        
+        try:
+            df = pds.DataFrame(data=q2y, index=np.arange(1,total_comps+1), columns=np.arange(1,repeats+1))
+        except:
+            df = pds.DataFrame(data=q2y.T, index=np.arange(1,total_comps+1), columns=np.arange(1,repeats+1))
+                
+        
         fig, ax = plt.subplots()
-        sns.violinplot(data=q2y.T, palette="Set1", ax=ax)
-        sns.swarmplot(data=q2y.T, edgecolor="black", color='black', ax=ax)
-        ax.set_xticklabels(range(1, total_comps + 1))
+        sns.violinplot(data=df.T, palette="Set1", ax=ax)
+        sns.swarmplot(data=df.T, edgecolor="black", color='black', ax=ax)
         ax.set_xlabel("Number of components")
         ax.set_ylabel("Q2Y")
         plt.show()
-
-        return q2y, ax
+        
+        # return q2y, ax
 
     def plot_permutation_test(self, permt_res, metric='Q2Y'):
         try:
