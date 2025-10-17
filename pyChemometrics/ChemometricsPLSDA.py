@@ -1,7 +1,7 @@
 from copy import deepcopy
 import numpy as np
 import pandas as pds
-from scipy import interp
+from numpy import interp
 from sklearn.base import BaseEstimator, TransformerMixin, ClassifierMixin, clone
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.model_selection import BaseCrossValidator, KFold, GridSearchCV
@@ -15,8 +15,8 @@ import matplotlib.cm as cm
 import seaborn as sns
 
 
-__author__ = 'gd2212'
-# Updated by flsoares232 on 24-10-2023
+__authors__ = ['gscorreia89', 'flsoares', 'kopeckylukas', 'Hummashazi']
+__date__ = "2025/10/17"
 
 class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
     """

@@ -19,6 +19,10 @@ from sklearn.utils.sparsefuncs import (inplace_column_scale,
 from sklearn.utils.validation import check_is_fitted, FLOAT_DTYPES
 
 
+__authors__ = ['gscorreia89', 'flsoares', 'kopeckylukas', 'Hummashazi']
+__date__ = "2025/10/17"
+
+
 class ChemometricsScaler(BaseEstimator, TransformerMixin):
     """
 

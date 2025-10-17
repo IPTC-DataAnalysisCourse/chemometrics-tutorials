@@ -1,6 +1,6 @@
 from copy import deepcopy
 import numpy as np
-import pandas as pds
+import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin, clone
 from sklearn.cross_decomposition._pls import PLSRegression, _PLS
@@ -16,12 +16,8 @@ import seaborn as sns
 from kneed import KneeLocator
 from pyChemometrics.plotting_utils import _scatterplots
 
-# originally dveloped by:
-__author__ = 'gscorreia89'
-
-# minor updates and maintenance:
-__authors__ = ["flsoares", "kopeckylukas"]
-__date__ = "2023/11/28"
+__authors__ = ['gscorreia89', 'flsoares', 'kopeckylukas', 'Hummashazi']
+__date__ = "2025/10/17"
 
 
 class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
@@ -1263,9 +1259,9 @@ class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
                 
                         
         try:
-            df = pds.DataFrame(data=q2y, index=np.arange(1,total_comps+1), columns=np.arange(1,repeats+1))
+            df = pd.DataFrame(data=q2y, index=np.arange(1,total_comps+1), columns=np.arange(1,repeats+1))
         except:
-            df = pds.DataFrame(data=q2y.T, index=np.arange(1,total_comps+1), columns=np.arange(1,repeats+1))
+            df = pd.DataFrame(data=q2y.T, index=np.arange(1,total_comps+1), columns=np.arange(1,repeats+1))
                 
         
         fig, ax = plt.subplots()

@@ -1,6 +1,6 @@
 from copy import deepcopy
 import numpy as np
-import pandas as pds
+import pandas as pd
 from numpy import interp
 from sklearn.base import TransformerMixin, ClassifierMixin, clone
 from pyChemometrics._ortho_filter_pls import OrthogonalPLSRegression
@@ -14,8 +14,8 @@ import matplotlib as mpl
 import matplotlib.cm as cm
 import seaborn as sns
 
-__author__ = 'gscorreia89'
-# Updated by flsoares232 on 24-10-2023
+__authors__ = ['gscorreia89', 'flsoares', 'kopeckylukas', 'Hummashazi']
+__date__ = "2025/10/17"
 
 class ChemometricsOrthogonalPLSDA(ChemometricsOrthogonalPLS, ClassifierMixin):
     """
@@ -149,7 +149,7 @@ class ChemometricsOrthogonalPLSDA(ChemometricsOrthogonalPLS, ClassifierMixin):
             # multi-class setting
             # Only for PLS: the sklearn LogisticRegression still requires a single vector!
             if self.n_classes > 2:
-                dummy_mat = pds.get_dummies(y).values
+                dummy_mat = pd.get_dummies(y).values
                 # If the user wants OneVsRest, etc, provide a different binary labelled y vector to use it instead.
                 yscaled = self.y_scaler.fit_transform(dummy_mat)
             else:
@@ -624,7 +624,7 @@ class ChemometricsOrthogonalPLSDA(ChemometricsOrthogonalPLS, ClassifierMixin):
             if y.ndim == 1:
                 # y = y.reshape(-1, 1)
                 if self.n_classes > 2:
-                    y_pls = pds.get_dummies(y).values
+                    y_pls = pd.get_dummies(y).values
                     y_nvars = y_pls.shape[1]
                 else:
                     y_nvars = 1
@@ -1382,7 +1382,7 @@ class ChemometricsOrthogonalPLSDA(ChemometricsOrthogonalPLS, ClassifierMixin):
         #     CM = sum(self.cvParameters['DA']['CV_TestConfusionMatrix'])
     
         # Plot the Confusion Matrix Dataset
-        df_cm = pds.DataFrame(CM)
+        df_cm = pd.DataFrame(CM)
         ax = sns.heatmap(df_cm, annot=True, cmap="crest")
         ax.set(xlabel="Predicted Label", ylabel="True Label")
         

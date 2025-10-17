@@ -14,16 +14,9 @@ import scipy.stats as st
 import matplotlib.cm as cm
 from pyChemometrics.plotting_utils import _scatterplots, _lineplots, _shiftedColorMap
 
-# originally dveloped by:
-__author__ = 'gscorreia89'
-# updated by flsoares232 on 17-10-2023
 
-
-# minor updates and maintenance:
-__authors__ = ["flsoares", "kopeckylukas"]
-__date__ = "2023/11/28"
-
-
+__authors__ = ['gscorreia89', 'flsoares', 'kopeckylukas', 'Hummashazi']
+__date__ = "2025/10/17"
 
 
 class ChemometricsPCA(_BasePCA, BaseEstimator):
@@ -949,7 +942,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
             # The mean outlier plotted in green
             ax.plot(xaxis, mean_outlier, 'g:')
             
-            ax.set_xlabel("$\delta$ppm")
+            ax.set_xlabel(r"$\delta$ppm")
             ax.invert_xaxis()
             plt.show()
         elif instrument == 'lcms':
