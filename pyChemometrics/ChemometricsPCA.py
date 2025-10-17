@@ -949,7 +949,7 @@ class ChemometricsPCA(_BasePCA, BaseEstimator):
             # The mean outlier plotted in green
             ax.plot(xaxis, mean_outlier, 'g:')
             
-            ax.set_xlabel("$\delta$ppm")
+            ax.set_xlabel(r"$\delta$ppm")
             ax.invert_xaxis()
             plt.show()
         elif instrument == 'lcms':
