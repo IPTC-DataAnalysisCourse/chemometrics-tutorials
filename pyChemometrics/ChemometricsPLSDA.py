@@ -1,7 +1,7 @@
 from copy import deepcopy
 import numpy as np
 import pandas as pds
-from scipy import interp
+from numpy import interp
 from sklearn.base import BaseEstimator, TransformerMixin, ClassifierMixin, clone
 from sklearn.cross_decomposition import PLSRegression
 from sklearn.model_selection import BaseCrossValidator, KFold, GridSearchCV
