@@ -19,8 +19,8 @@ from sklearn.utils.validation import check_is_fitted, FLOAT_DTYPES
 from sklearn.utils._param_validation import Interval, StrOptions
 import six
 
-__author__ = 'gscorreia89'
-# updated by flsoares232 on 17-10-2023
+__authors__ = ['gscorreia89', 'flsoares', 'kopeckylukas', 'Hummashazi']
+__date__ = "2025/10/17"
 
 
 def _nipals_twoblocks_inner_loop(X, Y, mode="A", max_iter=500, tol=1e-06,

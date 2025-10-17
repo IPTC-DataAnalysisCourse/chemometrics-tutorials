@@ -15,8 +15,8 @@ import matplotlib.cm as cm
 import seaborn as sns
 
 
-__author__ = 'gd2212'
-# Updated by flsoares232 on 24-10-2023
+__authors__ = ['gscorreia89', 'flsoares', 'kopeckylukas', 'Hummashazi']
+__date__ = "2025/10/17"
 
 class ChemometricsPLSDA(ChemometricsPLS, ClassifierMixin):
     """

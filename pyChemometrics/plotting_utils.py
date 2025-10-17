@@ -8,12 +8,8 @@ import matplotlib.cm as cm
 from matplotlib.collections import LineCollection
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-# originally dveloped by:
-__author__ = 'gscorreia89'
-
-# minor updates and maintenance:
-__authors__ = ["flsoares", "kopeckylukas"]
-__date__ = "2023/11/28"
+__authors__ = ['gscorreia89', 'flsoares', 'kopeckylukas', 'Hummashazi']
+__date__ = "2025/10/17"
 
 def manhattan_plot(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None, yaxis=None):
     """

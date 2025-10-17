@@ -16,12 +16,8 @@ import seaborn as sns
 from kneed import KneeLocator
 from pyChemometrics.plotting_utils import _scatterplots
 
-# originally dveloped by:
-__author__ = 'gscorreia89'
-
-# minor updates and maintenance:
-__authors__ = ["flsoares", "kopeckylukas"]
-__date__ = "2023/11/28"
+__authors__ = ['gscorreia89', 'flsoares', 'kopeckylukas', 'Hummashazi']
+__date__ = "2025/10/17"
 
 
 class ChemometricsPLS(BaseEstimator, RegressorMixin, TransformerMixin):
