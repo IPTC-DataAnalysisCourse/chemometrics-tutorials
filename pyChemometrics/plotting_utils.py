@@ -9,7 +9,7 @@ from matplotlib.collections import LineCollection
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 __authors__ = ['gscorreia89', 'flsoares', 'kopeckylukas', 'Hummashazi']
-__date__ = "2025/10/17"
+__date__ = "2025/11/20"
 
 def manhattan_plot(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None, yaxis=None):
     """
@@ -28,7 +28,7 @@ def manhattan_plot(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None, yaxis=
     if instrument == 'nmr':
 
         ax.set_ylabel(r"Sign($\beta$) $\times$ - $log_{10}$p-value")
-        ax.set_xlabel(r"$\delta$ppm")
+        ax.set_xlabel("$\delta$ppm")
         if xaxis is None:
             xaxis = np.arange(pvalues.size)
         scatter_plot = ax.scatter(xaxis, np.sign(beta) *logged_p, s=10, c=beta)
@@ -67,12 +67,14 @@ def manhattan_plot(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None, yaxis=
         norm = Normalize(vmin=mincol, vmax=maxcol)
         sm = plt.cm.ScalarMappable(cmap=new_cmap, norm=norm)
         sm.set_array([])
-        # Remove the legend and add a colorbar
-        ax.get_legend().remove()
-        cbar = ax.figure.colorbar(sm)
+        # Remove the legend
+        legend = ax.get_legend()
+        if legend is not None:
+            legend.remove()
+        # Add a colorbar
+        cbar = fig.colorbar(sm, ax=ax)
             
         cbar.set_label(r"Sign($\beta$) $\times$ - $log_{10}$p-value")
-
 
 def interactive_manhattan(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None, yaxis=None):
     """
@@ -105,7 +107,7 @@ def interactive_manhattan(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None,
             x=Xvals,
             y=yvals,
             mode='markers',
-            marker=dict(color=beta, size=5, colorscale='RdBu',
+            marker=dict(color=beta, size=5, colorscale='rdylbu_r',
                         cmin=-maxcol, cmax=maxcol, showscale=True),
             text=point_text)
     
@@ -113,7 +115,7 @@ def interactive_manhattan(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None,
     
         xReverse = 'reversed'
         Xlabel = chr(948) + 'ppm 1H'
-        Ylabel = r"Sign($\beta$) $\times$ - $log_{10}$p-value"
+        Ylabel = 'Sign(' + chr(946) + ') x - log\u2081\u2080 p-value'
     
         # Add annotation
         layout = {
@@ -177,15 +179,15 @@ def interactive_manhattan(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None,
             mode='markers',
             opacity=1,
 #             marker=dict(color=beta[group == 1], size=10, colorscale=[[0, 'darkblue'], [0.5, 'cornsilk'], [1, 'darkred']],
-            marker=dict(color=beta[group == 1], size=10, colorscale='RdBu_r',
+            marker=dict(color=beta[group == 1], size=10, colorscale='rdylbu_r',
                         cmin=-maxcol, cmax=maxcol, showscale=True))
 
         # Append data
         data = [manhattan_scatter,manhattan_scatter_sel]
 
         # Create labels
-        Xlabel = 'Mass to charge ratio (m/z)'
-        Ylabel = r"Sign($\beta$) $\times$ - $log_{10}$p-value"
+        Xlabel = 'Retention Time (min)'
+        Ylabel = 'Mass to charge ratio (m/z)'
     
         # Add annotation
         layout = {
@@ -199,7 +201,9 @@ def interactive_manhattan(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None,
                 yanchor="top",
                 y=0.99,
                 xanchor="right",
-                x=0.99)}
+                x=0.99),
+             'coloraxis_colorbar': dict(title=chr(946) + 'x - log\u2081\u2080 p-value')
+        }
         fig = {
             'data': data,
             'layout': layout,
@@ -234,7 +238,7 @@ def _barplots(mean, error=None, xaxis=None):
 
 
 def _scatterplots(mean, xaxis=None, yaxis=None, colormap=plt.cm.RdYlBu_r, xlabel='Retention Time',
-                 ylabel='Mass to charge ratio (m/z)', cbarlabel='Magnitude', marker_size=None, alpha=None):
+                 ylabel='Mass to charge ratio (m/z)', cbarlabel='Magnitude', marker_size=None):
     """
 
     """
@@ -270,13 +274,13 @@ def _scatterplots(mean, xaxis=None, yaxis=None, colormap=plt.cm.RdYlBu_r, xlabel
     elif xaxis is None and yaxis is not None:
         raise TypeError("Please, inform xaxis")
     else:   
-        ax.scatter(xaxis, yaxis, color=cVectAlphas, s=marker_size, alpha=alpha)
+        ax.scatter(xaxis, yaxis, color=cVectAlphas, s=marker_size)
         cb.set_array(mean)
         ax.set_xlim([min(xaxis)-1, max(xaxis)+1])
     
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.05)
-        cbar = plt.colorbar(cb, cax=cax)
+        cbar = plt.colorbar(cb,cax=cax)
         cbar.set_label(cbarlabel)
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
