@@ -28,7 +28,7 @@ def manhattan_plot(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None, yaxis=
     if instrument == 'nmr':
 
         ax.set_ylabel(r"Sign($\beta$) $\times$ - $log_{10}$p-value")
-        ax.set_xlabel("$\delta$ppm")
+        ax.set_xlabel("$\delta$ppm $^1$H")
         if xaxis is None:
             xaxis = np.arange(pvalues.size)
         scatter_plot = ax.scatter(xaxis, np.sign(beta) *logged_p, s=10, c=beta)
@@ -36,7 +36,8 @@ def manhattan_plot(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None, yaxis=
         ax.axhline(- 1*-np.log10(sig), linestyle='--')
     
         # plt.plot(np.mean(X, axis=0).T)
-        fig.colorbar(scatter_plot)
+        cbar = fig.colorbar(scatter_plot, ax=ax)
+        cbar.set_label(r"Beta coefficient") 
         ax.invert_xaxis()
         plt.show()
         
@@ -108,13 +109,14 @@ def interactive_manhattan(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None,
             y=yvals,
             mode='markers',
             marker=dict(color=beta, size=5, colorscale='rdylbu_r',
-                        cmin=-maxcol, cmax=maxcol, showscale=True),
+                        cmin=-maxcol, cmax=maxcol, showscale=True, 
+                        colorbar=dict(title='Beta coefficient', len=1.0, x=1.05, y=0.5)),
             text=point_text)
     
         data.append(manhattan_scatter)
     
         xReverse = 'reversed'
-        Xlabel = chr(948) + 'ppm 1H'
+        Xlabel = chr(948) + ' ppm ' + '\u00B9' + 'H' 
         Ylabel = 'Sign(' + chr(946) + ') x - log\u2081\u2080 p-value'
     
         # Add annotation
@@ -180,7 +182,8 @@ def interactive_manhattan(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None,
             opacity=1,
 #             marker=dict(color=beta[group == 1], size=10, colorscale=[[0, 'darkblue'], [0.5, 'cornsilk'], [1, 'darkred']],
             marker=dict(color=beta[group == 1], size=10, colorscale='rdylbu_r',
-                        cmin=-maxcol, cmax=maxcol, showscale=True))
+                        cmin=-maxcol, cmax=maxcol, showscale=True, 
+                        colorbar=dict(title='Beta coefficient', len=1.0, x=1.05, y=0.5)))
 
         # Append data
         data = [manhattan_scatter,manhattan_scatter_sel]
@@ -210,6 +213,7 @@ def interactive_manhattan(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None,
         }
 
     return fig
+
 
 def _lineplots(mean, error=None, xaxis=None,color=None,linestyle=None):
 
