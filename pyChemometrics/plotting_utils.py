@@ -28,7 +28,7 @@ def manhattan_plot(pvalues, beta, sig=0.05, instrument='nmr', xaxis=None, yaxis=
     if instrument == 'nmr':
 
         ax.set_ylabel(r"Sign($\beta$) $\times$ - $log_{10}$p-value")
-        ax.set_xlabel("$\delta$ppm $^1$H")
+        ax.set_xlabel(r"$\delta$ppm $^1$H")
         if xaxis is None:
             xaxis = np.arange(pvalues.size)
         scatter_plot = ax.scatter(xaxis, np.sign(beta) *logged_p, s=10, c=beta)
